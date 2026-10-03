@@ -42,6 +42,8 @@ Arguments without a host prefix are local folders. Remote paths must start with 
 
 Jumpcode opens VS Code through its registered `vscode://` protocol handler. It uses `vscode://file/...` for local folders and `vscode://vscode-remote/ssh-remote+<host>/<folder>` for remote folders. It does not invoke `code.cmd`. VS Code may ask for confirmation when it receives an external URI. Jumpcode can confirm only that Windows accepted the launch request; check the VS Code window for the remote connection result.
 
+Jumpcode uses a short-lived process without a console to open VS Code, so a newly launched VS Code process does not write its logs to the `jc server` terminal. VS Code may still record its own warnings. This does not change where an already running VS Code process writes its output.
+
 ## Open from a Linux VM
 
 In a terminal belonging to the signed-in Windows user, start the server in the foreground:

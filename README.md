@@ -43,6 +43,8 @@ jc me@192.168.56.10:~/project
 
 Windows 通过系统注册的 `vscode://` 协议打开 VS Code：本地目录使用 `vscode://file/...`，远端目录使用 `vscode://vscode-remote/ssh-remote+<主机>/<目录>`。程序不调用 `code.cmd`，也不修改 Electron 环境变量。VS Code 首次接收外部 URI 时可能要求确认；`jc` 只能确认 Windows 已接受启动请求，远程连接结果以 VS Code 窗口中的提示为准。
 
+打开 VS Code 时，`jc` 使用一个无控制台的短暂子进程，避免新启动的 VS Code 把自身日志写进 `jc server` 所在终端。VS Code 自身的警告仍可能出现在其日志中；已运行的 VS Code 进程若原本连接到其他终端，此操作不会改变它的输出位置。
+
 ## 从虚拟机打开项目
 
 首先在 Windows 当前登录用户的终端启动服务端，保持该终端运行：

@@ -88,6 +88,7 @@ var errorTranslations = [][2]string{
 	{"读取本地目录失败", "Failed to read local folder"},
 	{"本地目标必须是目录", "Local target must be a folder"},
 	{"VS Code URI 无效", "Invalid VS Code URI"},
+	{"获取 jc 程序路径失败", "Failed to locate jc executable"},
 	{"无法通过 vscode:// 打开 VS Code，请确认已安装桌面版并注册协议", "Failed to open VS Code through vscode://; check that the desktop app and protocol handler are installed"},
 	{"首版仅支持在 Windows 桌面端打开 VS Code", "Opening VS Code is currently supported only on a Windows desktop"},
 	{"不支持的请求方法", "Unsupported request method"},

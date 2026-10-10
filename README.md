@@ -61,7 +61,17 @@ jc s status
 jc s stop
 ```
 
-后台日志位于用户配置目录的 `jumpcode/server.log`，运行状态保存在同目录的 `daemon.json`。后台服务不会跨用户登录会话自动启动；如需开机后自动启动，可在 Windows 任务计划程序中以登录用户身份执行上述命令。`status` 和 `stop` 仅管理后台模式，前台模式用 `Ctrl+C` 停止。
+后台日志位于用户配置目录的 `jumpcode/server.log`，运行状态保存在同目录的 `daemon.json`。`-d` 不会在下次登录后自动启动。`jc s status` 和 `jc s stop` 管理后台及登录启动模式，前台模式用 `Ctrl+C` 停止。
+
+要在当前 Windows 用户登录后自动运行，执行：
+
+```powershell
+jc s startup install --listen 192.168.56.1:59684
+jc s startup status
+jc s startup uninstall
+```
+
+安装命令只注册计划任务，下次登录时启动；如需立即启动，可在 Windows 任务计划程序中手动运行该任务。任务中的隐藏启动器会等待服务进程并传递退出码，失败后最多间隔 1 分钟重试 3 次，不会在预设时长后停止。任务以当前登录用户身份运行，`jc.exe` 必须留在安装时的路径。`server.log` 记录启动、停止、失败及已接受的打开请求，不记录配对密钥或项目路径。`jc s stop` 只停止当前服务，任务仍会在下次登录时启动；`startup uninstall` 会移除任务并停止由任务启动的服务。
 
 在 Windows 的另一个终端创建配对。命令会显示证书指纹和仅显示一次的配对密钥：
 

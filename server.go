@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"path"
@@ -42,6 +43,10 @@ func runServer(dir, address string) error {
 }
 
 func runServerMode(dir, address string, daemonChild bool) error {
+	return runServerModeWithLog(dir, address, daemonChild, nil)
+}
+
+func runServerModeWithLog(dir, address string, daemonChild bool, activityLog *log.Logger) error {
 	if runtime.GOOS != "windows" {
 		return errors.New(tr("首版服务端仅支持 Windows", "The server currently supports Windows only"))
 	}
@@ -61,7 +66,19 @@ func runServerMode(dir, address string, daemonChild bool) error {
 		return errorf("监听 %s 失败: %w", "Failed to listen on %s: %w", address, err)
 	}
 	defer listener.Close()
-	handler := newServerHandler(dir, openRemote)
+	opener := openRemote
+	if activityLog != nil {
+		opener = func(target remoteTarget) error {
+			err := openRemote(target)
+			if err != nil {
+				activityLog.Printf("打开请求失败，SSH 主机 %s: %v", target.Host, err)
+			} else {
+				activityLog.Printf("已接受打开请求，SSH 主机 %s", target.Host)
+			}
+			return err
+		}
+	}
+	handler := newServerHandler(dir, opener)
 	server := &http.Server{
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
@@ -69,13 +86,21 @@ func runServerMode(dir, address string, daemonChild bool) error {
 	}
 	var cleanup func()
 	if daemonChild {
-		cleanup, err = serveDaemonControl(dir, address, server)
+		mode := "daemon"
+		if activityLog != nil {
+			mode = "task"
+		}
+		cleanup, err = serveDaemonControlMode(dir, address, server, mode)
 		if err != nil {
 			return err
 		}
 		defer cleanup()
 	}
-	fmt.Printf(tr("jc server 正在监听 https://%s\n证书 SHA-256 指纹: %s\n", "jc server listening at https://%s\nCertificate SHA-256 fingerprint: %s\n"), address, fingerprint)
+	if activityLog != nil {
+		activityLog.Printf("正在监听 https://%s，证书 SHA-256 指纹: %s", address, fingerprint)
+	} else {
+		fmt.Printf(tr("jc server 正在监听 https://%s\n证书 SHA-256 指纹: %s\n", "jc server listening at https://%s\nCertificate SHA-256 fingerprint: %s\n"), address, fingerprint)
+	}
 	err = server.Serve(tls.NewListener(listener, server.TLSConfig))
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil

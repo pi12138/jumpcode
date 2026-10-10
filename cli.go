@@ -95,7 +95,7 @@ func isRemoteInput(value string) bool {
 
 func newServerCommand() *cobra.Command {
 	var listen string
-	var daemon, child bool
+	var daemon, child, taskRun bool
 	server := &cobra.Command{
 		Use:     "server",
 		Aliases: []string{"s"},
@@ -106,8 +106,11 @@ func newServerCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if daemon && child {
+			if (daemon && child) || (daemon && taskRun) || (child && taskRun) {
 				return errors.New(tr("后台参数不能组合使用", "Daemon options cannot be combined"))
+			}
+			if taskRun {
+				return runStartupServer(dir, listen)
 			}
 			if daemon {
 				return startDaemon(dir, listen)
@@ -119,6 +122,8 @@ func newServerCommand() *cobra.Command {
 	server.Flags().BoolVarP(&daemon, "daemon", "d", false, tr("在当前 Windows 用户会话中后台运行", "Run in the current Windows user session in the background"))
 	server.Flags().BoolVar(&child, "daemon-child", false, "internal")
 	server.Flags().MarkHidden("daemon-child")
+	server.Flags().BoolVar(&taskRun, "task-run", false, "internal")
+	server.Flags().MarkHidden("task-run")
 	server.MarkFlagRequired("listen")
 	server.AddCommand(&cobra.Command{
 		Use: "status", Aliases: []string{"st"}, Short: tr("查看后台服务状态", "Show background server status"), Args: cobra.NoArgs,
@@ -140,6 +145,28 @@ func newServerCommand() *cobra.Command {
 			return stopDaemon(dir)
 		},
 	})
+	startup := &cobra.Command{
+		Use: "startup", Short: tr("管理登录后自动启动", "Manage startup after sign-in"), Args: cobra.NoArgs,
+	}
+	var startupListen string
+	install := &cobra.Command{
+		Use: "install", Short: tr("安装当前用户的登录启动任务", "Install a sign-in task for the current user"), Args: cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return installStartupTask(startupListen)
+		},
+	}
+	install.Flags().StringVar(&startupListen, "listen", "", tr("明确的局域网 IPv4 地址和端口", "Explicit LAN IPv4 address and port"))
+	install.MarkFlagRequired("listen")
+	startup.AddCommand(install)
+	startup.AddCommand(&cobra.Command{
+		Use: "status", Short: tr("查看登录启动任务状态", "Show sign-in task status"), Args: cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error { return startupTaskStatus() },
+	})
+	startup.AddCommand(&cobra.Command{
+		Use: "uninstall", Short: tr("卸载登录启动任务", "Remove the sign-in task"), Args: cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error { return uninstallStartupTask() },
+	})
+	server.AddCommand(startup)
 
 	var name, sshHost string
 	pair := &cobra.Command{

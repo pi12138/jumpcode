@@ -20,6 +20,7 @@ type daemonState struct {
 	Address string `json:"address"`
 	Control string `json:"control"`
 	Token   string `json:"token"`
+	Mode    string `json:"mode,omitempty"`
 }
 
 func statePath(dir string) string { return filepath.Join(dir, "daemon.json") }
@@ -106,6 +107,10 @@ func stopDaemon(dir string) error {
 }
 
 func serveDaemonControl(dir, address string, mainServer *http.Server) (func(), error) {
+	return serveDaemonControlMode(dir, address, mainServer, "daemon")
+}
+
+func serveDaemonControlMode(dir, address string, mainServer *http.Server, mode string) (func(), error) {
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
@@ -115,7 +120,7 @@ func serveDaemonControl(dir, address string, mainServer *http.Server) (func(), e
 		listener.Close()
 		return nil, err
 	}
-	state := daemonState{PID: os.Getpid(), Address: address, Control: listener.Addr().String(), Token: base64.RawURLEncoding.EncodeToString(secret)}
+	state := daemonState{PID: os.Getpid(), Address: address, Control: listener.Addr().String(), Token: base64.RawURLEncoding.EncodeToString(secret), Mode: mode}
 	control := &http.Server{ReadHeaderTimeout: 3 * time.Second}
 	control.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer "+state.Token {

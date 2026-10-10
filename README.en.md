@@ -60,7 +60,17 @@ jc s status
 jc s stop
 ```
 
-`-d` means `--daemon`. The log is `jumpcode/server.log` under the user's config folder; `daemon.json` in the same folder stores runtime state. Background mode does not automatically restart after login. For automatic startup, configure Windows Task Scheduler to run it as the signed-in user. `status` and `stop` manage background mode only; use `Ctrl+C` for foreground mode.
+`-d` means `--daemon`. The log is `jumpcode/server.log` under the user's config folder; `daemon.json` in the same folder stores runtime state. This mode does not start automatically at the next sign-in. `jc s status` and `jc s stop` manage both background and sign-in modes; use `Ctrl+C` for foreground mode.
+
+To start the server whenever the current Windows user signs in:
+
+```powershell
+jc s startup install --listen 192.168.56.1:59684
+jc s startup status
+jc s startup uninstall
+```
+
+Installation registers the task; it starts at the next sign-in. You can run it immediately from Windows Task Scheduler. A hidden launcher waits for the server and passes its exit code to the task, which retries failures up to three times at one-minute intervals and has no execution time limit. The task runs as the signed-in user, so keep `jc.exe` at the path used during installation. `server.log` records starts, stops, failures, and accepted open requests without recording pairing tokens or project paths. `jc s stop` stops the current server but leaves the task installed for the next sign-in. `startup uninstall` removes the task and stops a server started by that task.
 
 In another Windows terminal, create a VM pairing. The command prints the certificate fingerprint and a token shown only once:
 

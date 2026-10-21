@@ -16,6 +16,8 @@ import (
 
 	"jumpcode/internal/config"
 	"jumpcode/internal/i18n"
+
+	"golang.org/x/sys/windows"
 )
 
 func startupTaskIdentity() (string, string, error) {
@@ -39,7 +41,15 @@ func runSchtasks(args ...string) error {
 		if ctx.Err() != nil {
 			return fmt.Errorf("任务计划程序超时: %w", ctx.Err())
 		}
-		return fmt.Errorf("任务计划程序失败: %w: %s", err, strings.TrimSpace(string(output)))
+		codePage, _ := windows.GetConsoleOutputCP()
+		if codePage == 0 {
+			codePage = 1 // CP_OEMCP：无控制台时使用系统 OEM 代码页。
+		}
+		message, decodeErr := decodeWindowsOutput(output, codePage)
+		if decodeErr != nil {
+			return fmt.Errorf("任务计划程序失败: %w: 输出解码失败: %v; %q", err, decodeErr, output)
+		}
+		return fmt.Errorf("任务计划程序失败: %w: %s", err, strings.TrimSpace(message))
 	}
 	return nil
 }

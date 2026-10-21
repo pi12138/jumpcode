@@ -43,6 +43,9 @@ func Errorf(zh, en string, args ...any) error {
 
 // 协议和配置层保留中文原文，命令边界统一翻译展示给用户的错误。
 var errorTranslations = [][2]string{
+	{"任务计划程序失败", "Task Scheduler failed"},
+	{"任务计划程序超时", "Task Scheduler timed out"},
+	{"输出解码失败", "Failed to decode command output"},
 	{"监听地址应为 局域网IPv4:端口", "Listen address must be LAN-IPv4:port"},
 	{"请指定一个明确的 IPv4 监听地址，不要使用 0.0.0.0", "Specify an explicit IPv4 listen address, not 0.0.0.0"},
 	{"端口必须在 1 到 65535 之间", "Port must be between 1 and 65535"},

@@ -85,7 +85,9 @@ func startupTaskXML(userSID, program, powershell string, specs []string, lang st
 	if err != nil {
 		return nil, err
 	}
-	return append([]byte(xml.Header), data...), nil
+	// schtasks 导入后通过 Unicode 字符串解析 XML，声明和文件编码均使用 UTF-16。
+	definition := "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\r\n" + string(data)
+	return append([]byte{0xff, 0xfe}, encodeUTF16LE(definition)...), nil
 }
 
 func psLiteral(value string) string {
@@ -93,10 +95,14 @@ func psLiteral(value string) string {
 }
 
 func encodedPowerShell(script string) string {
+	return base64.StdEncoding.EncodeToString(encodeUTF16LE(script))
+}
+
+func encodeUTF16LE(script string) []byte {
 	units := utf16.Encode([]rune(script))
 	data := make([]byte, len(units)*2)
 	for i, unit := range units {
 		binary.LittleEndian.PutUint16(data[i*2:], unit)
 	}
-	return base64.StdEncoding.EncodeToString(data)
+	return data
 }

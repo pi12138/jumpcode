@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      JC_LANG: zh-CN
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: stable
+      - name: Check formatting
+        run: |
+          files=$(git ls-files '*.go' | xargs gofmt -l)
+          if [[ -n "$files" ]]; then
+            printf '%s\n' "$files"
+            exit 1
+          fi
+      - name: Vet
+        run: go vet -buildvcs=false ./...
+      - name: Test with race detector
+        if: runner.os == 'Linux'
+        run: go test -race -count=1 -buildvcs=false ./...
+      - name: Test on Windows
+        if: runner.os == 'Windows'
+        run: go test -count=1 -buildvcs=false ./...
+      - name: Build and check CLI
+        run: |
+          go build -buildvcs=false -o "$RUNNER_TEMP/jc.exe" .
+          "$RUNNER_TEMP/jc.exe" --version
+          "$RUNNER_TEMP/jc.exe" --help

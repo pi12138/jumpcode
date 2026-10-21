@@ -1,15 +1,7 @@
 package main
 
-import (
-	"fmt"
-	"os"
-)
+import "jumpcode/cmd"
 
 func main() {
-	handleOpenChild(os.Args[1:])
-	selectLanguage(os.Args[1:])
-	if err := newRootCommand().Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "jc:", localizeError(err))
-		os.Exit(1)
-	}
+	cmd.Execute()
 }

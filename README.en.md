@@ -2,119 +2,99 @@
 
 [简体中文](README.md)
 
-Jumpcode opens local Windows folders and Linux VM projects in VS Code. From a Linux VM terminal, it can ask VS Code on Windows to open the current folder. Remote folders use VS Code Remote-SSH and remain on the VM. VM-to-Windows requests use LAN HTTPS without a third-party relay.
+## Purpose
 
-## Requirements
+Jumpcode solves a specific workflow problem: while working in a Linux VM terminal, you want VS Code on your Windows desktop to open the **current Linux folder** without switching to Windows to type the host and path. Run `jc client .` on Linux to request that remote folder in Windows VS Code.
 
-- Windows: VS Code desktop, Remote-SSH extension, an OpenSSH client available as `ssh`, and the registered `vscode://` protocol handler.
-- Windows can SSH into the VM. Test `ssh devvm` first, where `devvm` is an alias in the Windows user's SSH config.
-- The VM can reach the chosen Windows LAN address and port. With a local VMware VM, a host-only network address can work.
+On Windows, the same `jc` command can open a local folder or a `host:folder` Remote-SSH project. Direct Windows commands do not need the server. Jumpcode does not copy project files, run VS Code on Linux, or provide a public relay. Remote files stay on Linux and are accessed by VS Code Remote-SSH.
 
-## Build
+## Architecture
 
-Go 1.24 or newer is required. Build on the target platform:
+```mermaid
+flowchart LR
+    Client["Linux terminal<br/>jc client ."] -->|"HTTPS: folder and pairing credential"| Server["Windows user session<br/>jc server"]
+    Server -->|"vscode:// open request"| VSCode["Windows desktop<br/>VS Code + Remote-SSH"]
+    VSCode -->|"SSH: project file access"| VM["Linux VM<br/>project folder"]
+    WindowsCLI["Windows terminal<br/>jc folder or host:folder"] -->|"direct vscode:// request"| VSCode
+```
+
+Linux sends the folder path and pairing credential to Windows over HTTPS. VS Code on Windows then accesses the Linux project over SSH. Project files stay on Linux. See [Architecture](docs/architecture.en.md) for pairing and identity verification.
+
+## Installation
+
+Download `v0.1.0-beta.1` from [GitHub Releases](https://github.com/pi12138/jumpcode/releases/tag/v0.1.0-beta.1). The first release provides **Windows amd64** and **Linux amd64** binaries for Intel/AMD 64-bit systems. Go is not required. This is a beta; see the [release notes](docs/releases/v0.1.0-beta.1.en.md) for known limitations.
+
+### Windows
+
+Download the [Windows ZIP](https://github.com/pi12138/jumpcode/releases/download/v0.1.0-beta.1/jumpcode_v0.1.0-beta.1_windows_amd64.zip) and [SHA256SUMS](https://github.com/pi12138/jumpcode/releases/download/v0.1.0-beta.1/SHA256SUMS) to your Downloads folder. Use `Get-FileHash -Algorithm SHA256` on the ZIP and compare the hash with its entry in the checksum file.
+
+Extract it to a stable folder and add that folder to your user `PATH` in PowerShell:
+
+```powershell
+$jcDir = Join-Path $env:LOCALAPPDATA 'Programs\Jumpcode'
+Expand-Archive -Path "$HOME\Downloads\jumpcode_v0.1.0-beta.1_windows_amd64.zip" -DestinationPath $jcDir
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+if (($userPath -split ';') -notcontains $jcDir) {
+    [Environment]::SetEnvironmentVariable('Path', "$jcDir;$userPath", 'User')
+}
+$env:Path = "$jcDir;$env:Path"
+jc --version
+```
+
+New terminals will inherit the updated `PATH`. Windows also needs VS Code desktop, Remote-SSH, and an OpenSSH client. Keep `jc.exe` at its installed path after registering a sign-in task. Before upgrading, run `jc server stop`, then replace the executable at the same path.
+
+### Linux
+
+Download, verify, and install into the current user's `~/.local/bin`:
 
 ```sh
-go build -buildvcs=false -o jc .       # Linux
-go build -buildvcs=false -o jc.exe .   # Windows
+jc_version=v0.1.0-beta.1
+jc_archive="jumpcode_${jc_version}_linux_amd64.tar.gz"
+jc_download_dir="$(mktemp -d)"
+cd "$jc_download_dir"
+curl -fL -O "https://github.com/pi12138/jumpcode/releases/download/$jc_version/$jc_archive"
+curl -fL -O "https://github.com/pi12138/jumpcode/releases/download/$jc_version/SHA256SUMS"
+mkdir -p "$HOME/.local/bin"
+if sha256sum --ignore-missing -c SHA256SUMS; then
+    tar -xzf "$jc_archive" && install -m 755 jc "$HOME/.local/bin/jc"
+fi
+export PATH="$HOME/.local/bin:$PATH"
+jc --version
 ```
 
-Or cross-compile for amd64 from Linux:
+Ensure the checksum reports `OK` before extracting and installing. Add `export PATH="$HOME/.local/bin:$PATH"` to your shell startup file, such as `~/.bashrc` or `~/.zshrc`, to keep `jc` available in future terminals. For source builds, see the [development guide](docs/development.en.md).
+
+## Quick start
+
+After installation, check that Windows can SSH into Linux and Linux can reach the Windows server's listen address.
+
+### 1. Start the Windows server and create credentials
+
+This example uses `me@192.168.56.10` as the Linux SSH destination. Replace it with yours, or use a configured SSH alias.
+
+```powershell
+jc server --listen auto --daemon
+jc server status
+jc pair create --name devvm --ssh-host me@192.168.56.10
+```
+
+Keep the certificate fingerprint and the pairing token shown only once. Choose a listen address reachable from Linux from the server status output.
+
+### 2. Pair and open the project from Linux
+
+Keep the Windows server running, replace the address and fingerprint below, and paste the pairing token when prompted. Token input is not echoed.
 
 ```sh
-GOOS=windows GOARCH=amd64 go build -buildvcs=false -o jc.exe .
-GOOS=linux GOARCH=amd64 go build -buildvcs=false -o jc .
-```
-
-Put the binary on `PATH`. The first build may download dependencies from `go.mod`. The `-buildvcs=false` option is used because this workspace lacks complete Git metadata; omit it in a normal Git checkout.
-
-## Open from Windows
-
-```powershell
-jc .
-jc .\project
-jc C:\Users\me\project
-jc devvm:/home/me/project
-jc me@192.168.56.10:~/project
-```
-
-Arguments without a host prefix are local folders. Remote paths must start with `/` or `~/`; the latter is resolved through SSH. Hosts can be Windows SSH config aliases or `user@host`. On Linux, use `jc client .` or `jc c .` instead of `jc .`.
-
-Jumpcode opens VS Code through its registered `vscode://` protocol handler. It uses `vscode://file/...` for local folders and `vscode://vscode-remote/ssh-remote+<host>/<folder>` for remote folders. It does not invoke `code.cmd`. VS Code may ask for confirmation when it receives an external URI. Jumpcode can confirm only that Windows accepted the launch request; check the VS Code window for the remote connection result.
-
-Jumpcode uses a short-lived process without a console to open VS Code, so a newly launched VS Code process does not write its logs to the `jc server` terminal. VS Code may still record its own warnings. This does not change where an already running VS Code process writes its output.
-
-## Open from a Linux VM
-
-In a terminal belonging to the signed-in Windows user, start the server in the foreground:
-
-```powershell
-jc server --listen 192.168.56.1:59684
-```
-
-To run it in the background of the same Windows user session:
-
-```powershell
-jc s --listen 192.168.56.1:59684 -d
-jc s status
-jc s stop
-```
-
-`-d` means `--daemon`. The log is `jumpcode/server.log` under the user's config folder; `daemon.json` in the same folder stores runtime state. This mode does not start automatically at the next sign-in. `jc s status` and `jc s stop` manage both background and sign-in modes; use `Ctrl+C` for foreground mode.
-
-To start the server whenever the current Windows user signs in:
-
-```powershell
-jc s startup install --listen 192.168.56.1:59684
-jc s startup status
-jc s startup uninstall
-```
-
-Installation registers the task; it starts at the next sign-in. You can run it immediately from Windows Task Scheduler. A hidden launcher waits for the server and passes its exit code to the task, which retries failures up to three times at one-minute intervals and has no execution time limit. The task runs as the signed-in user, so keep `jc.exe` at the path used during installation. `server.log` records starts, stops, failures, and accepted open requests without recording pairing tokens or project paths. `jc s stop` stops the current server but leaves the task installed for the next sign-in. `startup uninstall` removes the task and stops a server started by that task.
-
-In another Windows terminal, create a VM pairing. The command prints the certificate fingerprint and a token shown only once:
-
-```powershell
-jc server pair --name devvm --ssh-host devvm
-```
-
-On the Linux VM, enter the printed fingerprint and paste the pairing token when prompted:
-
-```sh
-jc client pair --server 192.168.56.1:59684 --fingerprint <fingerprint>
+jc pair join --server 192.168.56.1:59684 --fingerprint 'paste the certificate fingerprint printed on Windows'
+cd /home/me/project
 jc client .
 ```
 
-You can also open another folder with `jc client /home/me/project`. The server uses the SSH host bound to the pairing; clients cannot choose another host.
+VS Code on Windows should attempt to open the folder through Remote-SSH. Check its window for the final connection result.
 
-Revoke a pairing on Windows:
+## Documentation
 
-```powershell
-jc server revoke --name devvm
-```
-
-Revocation takes effect immediately because the server reads current pairing settings for each request. Settings are stored in the user's `jumpcode` config folder. The Linux client config is readable and writable only by the current user. Do not share pairing tokens or the server private key. If the VM cannot connect, check the Windows firewall and listen address; Jumpcode does not change firewall settings.
-
-## Short commands and language
-
-`server` has alias `s`, `client` has alias `c`, `pair` has alias `p`, `revoke` has alias `r`, and `status` has alias `st`. For example:
-
-```powershell
-jc s p --name devvm --ssh-host devvm
-```
-
-```sh
-jc c p --server 192.168.56.1:59684 --fingerprint <fingerprint>
-jc c .
-```
-
-Command names take precedence over local folders with the same name. On Windows, use `jc ./s` or `jc ./c` to open such a folder.
-
-The CLI supports Simplified Chinese and English. It chooses a default from the system language. Override with `--lang zh-CN`, `--lang en-US`, or the `JC_LANG` environment variable. Example: `jc --lang en-US s --help`.
-
-## Development checks
-
-```sh
-go test -buildvcs=false ./...
-go test -race -buildvcs=false ./...
-```
+- [Usage guide](docs/usage.en.md): initial setup, listen addresses, credentials, background operation, sign-in tasks, and troubleshooting.
+- [Architecture](docs/architecture.en.md): component responsibilities, connection directions, and pairing.
+- [Development guide](docs/development.en.md): source layout, builds, cross-compilation, and verification commands.
+- [v0.1.0-beta.1 release notes](docs/releases/v0.1.0-beta.1.en.md): features, artifacts, and known limitations.

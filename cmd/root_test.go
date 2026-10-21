@@ -31,6 +31,8 @@ func TestShortCommands(t *testing.T) {
 		{[]string{"pair", "status"}, "status"},
 		{[]string{"c"}, "client"},
 		{[]string{"s", "st"}, "status"},
+		{[]string{"s", "start"}, "start"},
+		{[]string{"s", "stop"}, "stop"},
 		{[]string{"s", "startup", "install"}, "install"},
 	} {
 		cmd, remaining, err := root.Find(tc.args)

@@ -19,7 +19,7 @@ flowchart LR
 | `jc server` | 在当前登录用户的 Windows 会话中监听 HTTPS，验证客户端凭据，并通过 Windows 注册的 `vscode://` 协议请求打开 VS Code。可前台、后台或登录后自动运行。 |
 | `jc client` | 在 Linux 虚拟机中临时运行；把目录解析为绝对路径，向已配对的 Windows 服务端发送请求，不常驻后台。 |
 | VS Code + Remote-SSH | 运行在 Windows 桌面；真正建立到 Linux 的 SSH 连接。Jumpcode 只能确认打开请求已被接受，最终连接结果以 VS Code 窗口为准。 |
-| Windows 任务计划程序 | 可选；安装登录启动任务后，在当前用户下次登录时运行 `jc server`。它不是开机前运行的 Windows Service。 |
+| Windows 任务计划程序 | 可选；安装登录启动任务后，在当前用户下次登录时运行 `jc server`，也可用 `jc s start` 立即运行已安装的任务。`jc s stop` 正常停止当前服务，保留登录自动启动。它不是开机前运行的 Windows Service。 |
 
 ## 配对与身份校验
 

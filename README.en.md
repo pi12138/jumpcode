@@ -92,6 +92,8 @@ jc client .
 
 VS Code on Windows should attempt to open the folder through Remote-SSH. Check its window for the final connection result.
 
+For automatic startup at sign-in, install the task with `jc s startup install --listen auto`. `jc s stop` stops the current server while keeping the task. The current source version adds `jc s start` to run an installed task immediately; the published v0.1.0 release does not include it. See [Server operation and management](docs/usage.en.md#server-operation-and-management) for the full workflow.
+
 ## Documentation
 
 - [Usage guide](docs/usage.en.md): initial setup, listen addresses, credentials, background operation, sign-in tasks, and troubleshooting.

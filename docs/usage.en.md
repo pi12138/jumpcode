@@ -71,7 +71,7 @@ After the flow works, you can register a Windows sign-in task:
 .\jc.exe s startup status
 ```
 
-Installing the task does not start another server immediately; it runs at the next sign-in by that Windows user. Put `jc.exe` at a stable local path first. If a task is already installed, run `.\jc.exe s startup uninstall` before reinstalling; uninstalling also stops a server started by that task.
+Installing the task does not start another server immediately; it runs at the next sign-in by that Windows user. To switch to task management immediately, stop the standalone background server from the earlier steps with `.\jc.exe s stop`, then run `.\jc.exe s start`. Put `jc.exe` at a stable local path first. If a task is already installed, run `.\jc.exe s startup uninstall` before reinstalling; uninstalling also stops a server started by that task.
 
 ## Open from Windows
 
@@ -113,10 +113,26 @@ To start the server whenever the current Windows user signs in:
 
 ```powershell
 jc s startup install --listen auto
+jc s start
+jc s status
 jc s startup status
+jc s stop
 ```
 
-Installation registers the task; it starts at the next sign-in. You can run it immediately from Windows Task Scheduler. Use explicit addresses and repeat `--listen` when installing if needed; omitting it stores `auto`, so addresses are discovered at each sign-in. A hidden launcher waits for the server and passes its exit code to the task, which retries failures up to three times at one-minute intervals and has no execution time limit. The task runs as the signed-in user, so keep `jc.exe` at the path used during installation. `server.log` records starts, stops, failures, and accepted open requests without recording pairing tokens or project paths. `jc s stop` stops the current server but leaves the task installed for the next sign-in. `jc s startup uninstall` removes the task and stops a server started by that task.
+Installation only registers the task for the next sign-in. `jc s start` runs the installed task immediately, using the executable path, language, and listen settings saved during installation. It accepts neither `--listen` nor `-d` and does not install a missing task. Starting an already running task reports that it is running. If a standalone server started with `-d` is running, stop it with `jc s stop` first. The start command waits up to 10 seconds for the server control endpoint to become ready. If the scheduler accepts the request but the server is not ready, it returns an error with the log path. The task may still start or retry later; check `jc s status` and `jc s startup status`.
+
+`jc s start` was added after v0.1.0. Use a source build containing this feature or a later release; with the published v0.1.0 release, run the task manually in Windows Task Scheduler.
+
+Use explicit addresses and repeat `--listen` when installing if needed; omitting it stores `auto`, so addresses are discovered whenever the task starts. A hidden launcher waits for the server and passes its exit code to the task, which retries failures up to three times at one-minute intervals and has no execution time limit. The task runs as the signed-in user, so keep `jc.exe` at the path used during installation. `server.log` records manual start requests, readiness, starts, stops, failures, and accepted open requests without recording pairing tokens or project paths. `jc s stop` stops the current server gracefully through its control endpoint and leaves the task installed for the next sign-in. `jc s startup uninstall` removes the task and stops a server started by that task.
+
+| Action | Command |
+| --- | --- |
+| Install automatic startup at sign-in | `jc s startup install --listen auto` |
+| Run the installed task now | `jc s start` |
+| Check the current server | `jc s status` |
+| Stop the current server, keeping automatic startup | `jc s stop` |
+| Check task installation and server status | `jc s startup status` |
+| Remove the task and stop its server | `jc s startup uninstall` |
 
 ## Pairing and credentials
 

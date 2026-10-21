@@ -54,6 +54,14 @@ func runSchtasks(args ...string) error {
 	return nil
 }
 
+func Start(dir string) error {
+	name, _, err := startupTaskIdentity()
+	if err != nil {
+		return err
+	}
+	return startInstalledTask(dir, name, runSchtasks, 10*time.Second)
+}
+
 func InstallStartup(specs []string) error {
 	specs, err := normalizeListenSpecs(specs)
 	if err != nil {
@@ -95,7 +103,7 @@ func InstallStartup(specs []string) error {
 	if err := runSchtasks("/create", "/tn", name, "/xml", f.Name()); err != nil {
 		return err
 	}
-	fmt.Printf(i18n.T("已安装登录启动任务 %q，监听配置: %s\n下次登录时自动启动；日志: %s\n", "Installed sign-in task %q, listen settings: %s\nIt starts at the next sign-in; log: %s\n"), name, strings.Join(specs, ", "), filepath.Join(dir, "server.log"))
+	fmt.Printf(i18n.T("已安装登录启动任务 %q，监听配置: %s\n下次登录时自动启动；也可执行 jc s start 立即启动。\n日志: %s\n", "Installed sign-in task %q, listen settings: %s\nIt starts at the next sign-in; run jc s start to start it now.\nLog: %s\n"), name, strings.Join(specs, ", "), filepath.Join(dir, "server.log"))
 	return nil
 }
 

@@ -41,6 +41,6 @@ func newServerCommand() *cobra.Command {
 	cmd.Flags().MarkHidden("daemon-child")
 	cmd.Flags().BoolVar(&taskRun, "task-run", false, "internal")
 	cmd.Flags().MarkHidden("task-run")
-	cmd.AddCommand(newServerStatusCommand(), newServerStopCommand(), newServerStartupCommand())
+	cmd.AddCommand(newServerStartCommand(), newServerStatusCommand(), newServerStopCommand(), newServerStartupCommand())
 	return cmd
 }

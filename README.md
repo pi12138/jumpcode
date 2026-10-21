@@ -92,6 +92,8 @@ jc client .
 
 Windows 上的 VS Code 会尝试通过 Remote-SSH 打开该目录，最终连接结果以 VS Code 窗口为准。
 
+需要登录后自动运行时，使用 `jc s startup install --listen auto` 安装任务，`jc s stop` 停止当前服务并保留任务。当前源码版本新增 `jc s start`，可立即运行已安装的任务；正式版 v0.1.0 尚无此命令。完整操作见[服务端运行与管理](docs/usage.md#服务端运行与管理)。
+
 ## 文档
 
 - [使用指南](docs/usage.md)：首次配置、监听地址、凭据管理、后台服务、自启动和故障排查。

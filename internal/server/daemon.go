@@ -53,8 +53,12 @@ func readDaemonState(dir string) (daemonState, error) {
 }
 
 func daemonRequest(state daemonState, method string) error {
+	return daemonRequestContext(context.Background(), state, method)
+}
+
+func daemonRequestContext(ctx context.Context, state daemonState, method string) error {
 	client := &http.Client{Timeout: time.Second}
-	req, err := http.NewRequest(method, "http://"+state.Control+"/control", nil)
+	req, err := http.NewRequestWithContext(ctx, method, "http://"+state.Control+"/control", nil)
 	if err != nil {
 		return err
 	}

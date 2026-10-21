@@ -131,6 +131,7 @@ jc pair list
 
 ```sh
 jc pair join --server 192.168.56.1:59684 --fingerprint '粘贴证书指纹'
+jc pair list
 jc pair status
 jc client .
 ```
@@ -139,7 +140,9 @@ jc client .
 
 服务端可以监听多个 IP，但每个 Linux 客户端只保存一个服务端地址；配对时请选择该虚拟机可访问的地址，地址变化后需要重新配对。
 
-Windows 上的 `jc pair list` 只显示配对名称和绑定的 SSH 主机，不显示密钥哈希。Linux 上的 `jc pair status` 显示已保存的服务端地址和证书指纹，不显示配对密钥。撤销配对时在 Windows 执行：
+`jc pair list` 在两端均可执行：Windows 显示已签发的配对名称和绑定的 SSH 主机，Linux 显示本机保存的服务端地址和证书指纹；不显示配对密钥或密钥哈希。尚未配对时显示“暂无配对凭据”。Linux 上的 `jc pair status` 也显示同一份本地配对信息；这些查看命令不连接服务端，不能判断服务是否在线、密钥是否已被撤销。
+
+`pair create/revoke` 需要在 Windows 服务端执行，`pair join/status` 需要在 Linux 客户端执行；误用时会提示对应命令的执行位置。撤销配对时在 Windows 执行：
 
 ```powershell
 jc pair revoke --name devvm
@@ -181,3 +184,16 @@ jc c .
 CLI 支持简体中文和英文，默认根据系统语言选择；可用 `--lang zh-CN` 或 `--lang en-US` 指定，也可设置环境变量 `JC_LANG`。例如 `jc --lang en-US s --help`。
 
 使用 `jc --version` 或 `jc -v` 查看版本、提交号、构建时间和目标平台；反馈问题时可附上该输出。
+
+## 请求超时
+
+`jc client` 和 `jc pair join` 默认的整个 HTTP 请求超时为 **10 秒**，包含 TCP 连接、TLS 握手和等待服务端响应；TCP 连接和 TLS 握手各有 **3 秒**的时限，同时受请求总超时约束。
+
+可用 `--timeout` 调整单次请求的总超时，必须带单位且大于 0，例如：
+
+```sh
+jc c . --timeout 5s
+jc pair join --server 192.168.56.1:59684 --fingerprint '粘贴证书指纹' --timeout 15s
+```
+
+该参数不保存到配对配置，连接和握手时限仍各为 3 秒。计时从发送请求开始，不包含输入配对密钥的时间，也不控制 VS Code 后续的 SSH 连接。

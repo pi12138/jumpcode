@@ -43,14 +43,14 @@ func TestPairedClientCanOnlyOpenBoundHost(t *testing.T) {
 	defer server.Close()
 	address := strings.TrimPrefix(server.URL, "https://")
 
-	if err := client.Join(clientDir, address, fingerprint, token); err != nil {
+	if err := client.Join(clientDir, address, fingerprint, token, protocol.DefaultRequestTimeout); err != nil {
 		t.Fatalf("正确凭据应能配对: %v", err)
 	}
 	cfg, err := config.ReadClient(clientDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	httpClient, err := protocol.NewHTTPClient(cfg.Fingerprint)
+	httpClient, err := protocol.NewHTTPClient(cfg.Fingerprint, protocol.DefaultRequestTimeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestPairedClientCanOnlyOpenBoundHost(t *testing.T) {
 	}
 	if runtime.GOOS == "linux" {
 		workspace = t.TempDir()
-		openProject = func() error { return client.Open(clientDir, workspace) }
+		openProject = func() error { return client.Open(clientDir, workspace, protocol.DefaultRequestTimeout) }
 	}
 	if err := openProject(); err != nil {
 		t.Fatalf("正确凭据应能打开目录: %v", err)
@@ -125,7 +125,7 @@ func TestWrongCertificateFingerprintFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := client.Join(t.TempDir(), address, strings.Repeat("0", 64), token); err == nil || !strings.Contains(err.Error(), "指纹不匹配") {
+	if err := client.Join(t.TempDir(), address, strings.Repeat("0", 64), token, protocol.DefaultRequestTimeout); err == nil || !strings.Contains(err.Error(), "指纹不匹配") {
 		t.Fatalf("错误证书指纹必须拒绝，得到: %v", err)
 	}
 }

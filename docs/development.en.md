@@ -67,22 +67,22 @@ The release tool uses the Go standard library and Git. It produces a Windows amd
 Create a test snapshot during development:
 
 ```sh
-go run ./scripts/release --version v0.1.0-beta.1 --snapshot
+go run ./scripts/release --version v0.1.0 --snapshot
 ```
 
-Output goes to `dist/v0.1.0-beta.1.snapshot/`. Snapshot versions include `.snapshot`; uncommitted changes add `-dirty` to the commit. The manifest records both `snapshot` and `dirty`. Existing output directories are never overwritten, and a failed build does not leave a completed release directory.
+Output goes to `dist/v0.1.0-snapshot/`. Stable version numbers gain `-snapshot`; versions that already have a prerelease suffix gain `.snapshot`. Uncommitted changes add `-dirty` to the commit. The manifest records both `snapshot` and `dirty`. Existing output directories are never overwritten, and a failed build does not leave a completed release directory.
 
 For a release, prepare `docs/releases/<version>.md` and `.en.md`, commit all source changes, ensure the working tree is clean, and create a version tag pointing to the current commit:
 
 ```sh
-git tag -a v0.1.0-beta.1 -m 'Release v0.1.0-beta.1'
-go run ./scripts/release --version v0.1.0-beta.1
+git tag -a v0.1.0 -m 'Release v0.1.0'
+go run ./scripts/release --version v0.1.0
 ```
 
-Output goes to `dist/v0.1.0-beta.1/`. Packaging fails if the working tree is dirty or the tag does not point to the current commit. Checksums cover both archives and the manifest. Verify them on Linux:
+Output goes to `dist/v0.1.0/`. Packaging fails if the working tree is dirty or the tag does not point to the current commit. Checksums cover both archives and the manifest. Verify them on Linux:
 
 ```sh
-cd dist/v0.1.0-beta.1
+cd dist/v0.1.0
 sha256sum -c SHA256SUMS
 ```
 
@@ -98,7 +98,7 @@ Push a version tag to trigger publication:
 
 ```sh
 git push origin main
-git push origin refs/tags/v0.1.0-beta.1
+git push origin refs/tags/v0.1.0
 ```
 
 The Release workflow first runs both platform checks on the tagged source, then builds and verifies the archives. It uploads all assets to a draft before publishing it. Versions with prerelease suffixes such as `-beta` are marked as pre-releases. The four assets are the Windows ZIP, Linux tar.gz, `release.json`, and `SHA256SUMS`.

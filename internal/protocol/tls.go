@@ -6,19 +6,37 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"errors"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 )
 
+const (
+	DefaultRequestTimeout = 10 * time.Second
+	connectTimeout        = 3 * time.Second
+)
+
+func ValidateRequestTimeout(timeout time.Duration) error {
+	if timeout <= 0 {
+		return errors.New("请求超时时间必须大于 0")
+	}
+	return nil
+}
+
 // NewHTTPClient 固定服务端证书指纹并拒绝重定向，避免凭据发送到其他服务端。
-func NewHTTPClient(fingerprint string) (*http.Client, error) {
+func NewHTTPClient(fingerprint string, timeout time.Duration) (*http.Client, error) {
+	if err := ValidateRequestTimeout(timeout); err != nil {
+		return nil, err
+	}
 	fingerprint, err := NormalizeFingerprint(fingerprint)
 	if err != nil {
 		return nil, err
 	}
 	want, _ := hex.DecodeString(fingerprint)
 	transport := &http.Transport{
+		DialContext:         (&net.Dialer{Timeout: connectTimeout}).DialContext,
+		TLSHandshakeTimeout: connectTimeout,
 		TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS13,
 			// 自签名证书由用户提供的 SHA-256 指纹直接固定。
@@ -42,7 +60,7 @@ func NewHTTPClient(fingerprint string) (*http.Client, error) {
 	}
 	return &http.Client{
 		Transport: transport,
-		Timeout:   30 * time.Second,
+		Timeout:   timeout,
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return errors.New("不接受服务端重定向")
 		},

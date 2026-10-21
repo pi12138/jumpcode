@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"runtime"
 
 	"jumpcode/internal/i18n"
@@ -18,9 +17,16 @@ func newPairCommand() *cobra.Command {
 	return cmd
 }
 
-func ensureLinuxPairCommand() error {
+func ensureLinuxPairCommand(command string) error {
 	if runtime.GOOS != "linux" {
-		return errors.New(i18n.T("首版 jc client 仅支持 Linux 虚拟机", "jc client currently supports Linux VMs only"))
+		return i18n.Errorf("请在 Linux 客户端执行 jc pair %s", "Run jc pair %s on the Linux client", command)
+	}
+	return nil
+}
+
+func ensureWindowsPairCommand(command string) error {
+	if runtime.GOOS != "windows" {
+		return i18n.Errorf("请在 Windows 服务端执行 jc pair %s", "Run jc pair %s on the Windows server", command)
 	}
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"jumpcode/internal/config"
 	"jumpcode/internal/i18n"
@@ -30,7 +31,7 @@ func validateServerAddress(address string) error {
 }
 
 // Join 在线验证地址、证书指纹和密钥，验证成功后保存客户端配置。
-func Join(dir, address, fingerprint, token string) error {
+func Join(dir, address, fingerprint, token string, timeout time.Duration) error {
 	if err := validateServerAddress(address); err != nil {
 		return err
 	}
@@ -42,10 +43,11 @@ func Join(dir, address, fingerprint, token string) error {
 		return errors.New("配对密钥不能为空")
 	}
 	cfg := config.Client{Server: address, Fingerprint: fingerprint, Token: token}
-	client, err := protocol.NewHTTPClient(fingerprint)
+	client, err := protocol.NewHTTPClient(fingerprint, timeout)
 	if err != nil {
 		return err
 	}
+	defer client.CloseIdleConnections()
 	resp, err := authorizedRequest(client, cfg, http.MethodGet, "/v1/ping", nil)
 	if err != nil {
 		return fmt.Errorf("配对验证失败: %w", err)
@@ -58,7 +60,7 @@ func Join(dir, address, fingerprint, token string) error {
 }
 
 // Open 将 Linux 目录解析为绝对路径，并请求已配对的 Windows 服务端打开。
-func Open(dir, folder string) error {
+func Open(dir, folder string, timeout time.Duration) error {
 	if runtime.GOOS != "linux" {
 		return errors.New("首版 jc client 仅支持 Linux 虚拟机")
 	}
@@ -81,10 +83,11 @@ func Open(dir, folder string) error {
 	if err != nil {
 		return err
 	}
-	client, err := protocol.NewHTTPClient(cfg.Fingerprint)
+	client, err := protocol.NewHTTPClient(cfg.Fingerprint, timeout)
 	if err != nil {
 		return err
 	}
+	defer client.CloseIdleConnections()
 	data, err := json.Marshal(protocol.OpenRequest{Path: resolved})
 	if err != nil {
 		return err

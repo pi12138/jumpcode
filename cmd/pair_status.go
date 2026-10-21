@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"os"
 
 	"jumpcode/internal/config"
 	"jumpcode/internal/i18n"
@@ -12,9 +14,9 @@ import (
 
 func newPairStatusCommand() *cobra.Command {
 	return &cobra.Command{
-		Use: "status", Short: i18n.T("查看 Linux 客户端配对状态", "Show Linux client pairing status"), Args: cobra.NoArgs,
+		Use: "status", Short: i18n.T("查看 Linux 客户端本地保存的配对", "Show the pairing saved locally on the Linux client"), Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := ensureLinuxPairCommand(); err != nil {
+			if err := ensureLinuxPairCommand(cmd.Name()); err != nil {
 				return err
 			}
 			dir, err := config.Dir()
@@ -28,6 +30,10 @@ func newPairStatusCommand() *cobra.Command {
 
 func pairStatus(output io.Writer, dir string) error {
 	cfg, err := config.ReadClient(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		fmt.Fprintln(output, i18n.T("暂无配对凭据", "No pairings"))
+		return nil
+	}
 	if err != nil {
 		return err
 	}

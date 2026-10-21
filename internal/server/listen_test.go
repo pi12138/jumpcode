@@ -80,7 +80,7 @@ func TestMultipleHTTPSListeners(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() { done <- serveHTTPSOnListeners(server, listeners) }()
-	client, err := protocol.NewHTTPClient(fingerprint)
+	client, err := protocol.NewHTTPClient(fingerprint, protocol.DefaultRequestTimeout)
 	if err != nil {
 		t.Fatal(err)
 	}

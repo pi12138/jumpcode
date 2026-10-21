@@ -53,6 +53,7 @@ var errorTranslations = [][2]string{
 	{"服务端地址无效", "Invalid server address"},
 	{"服务端地址不能使用 0.0.0.0", "Server address cannot be 0.0.0.0"},
 	{"配对密钥不能为空", "Pairing token cannot be empty"},
+	{"请求超时时间必须大于 0", "Request timeout must be greater than 0"},
 	{"配对验证失败", "Pairing verification failed"},
 	{"首版 jc client 仅支持 Linux 虚拟机", "jc client currently supports Linux VMs only"},
 	{"解析目录失败", "Failed to resolve folder"},

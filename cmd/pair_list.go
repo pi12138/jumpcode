@@ -3,25 +3,28 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"runtime"
 	"text/tabwriter"
 
 	"jumpcode/internal/config"
 	"jumpcode/internal/i18n"
-	"jumpcode/internal/server"
 
 	"github.com/spf13/cobra"
 )
 
 func newPairListCommand() *cobra.Command {
 	return &cobra.Command{
-		Use: "list", Short: i18n.T("列出 Windows 上的配对", "List pairings on Windows"), Args: cobra.NoArgs,
+		Use: "list", Short: i18n.T("列出本机保存的配对凭据", "List pairings saved on this machine"), Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := server.CheckPlatform(); err != nil {
-				return err
+			if runtime.GOOS != "windows" && runtime.GOOS != "linux" {
+				return i18n.Errorf("jc pair list 仅支持 Windows 和 Linux", "jc pair list supports Windows and Linux only")
 			}
 			dir, err := config.Dir()
 			if err != nil {
 				return err
+			}
+			if runtime.GOOS == "linux" {
+				return pairStatus(cmd.OutOrStdout(), dir)
 			}
 			return listPairs(cmd.OutOrStdout(), dir)
 		},

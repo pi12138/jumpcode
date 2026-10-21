@@ -6,7 +6,6 @@ import (
 	"jumpcode/internal/config"
 	"jumpcode/internal/i18n"
 	"jumpcode/internal/pairing"
-	"jumpcode/internal/server"
 
 	"github.com/spf13/cobra"
 )
@@ -15,9 +14,9 @@ func newPairCreateCommand() *cobra.Command {
 	var name, sshHost string
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: i18n.T("创建虚拟机配对凭据并绑定 SSH 主机", "Pair a VM with a fixed SSH host"), Args: cobra.NoArgs,
+		Short: i18n.T("在 Windows 创建虚拟机配对凭据并绑定 SSH 主机", "Create VM credentials on Windows with a fixed SSH host"), Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := server.CheckPlatform(); err != nil {
+			if err := ensureWindowsPairCommand(cmd.Name()); err != nil {
 				return err
 			}
 			dir, err := config.ServerDir()

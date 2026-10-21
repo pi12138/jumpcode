@@ -131,6 +131,7 @@ The server can be stopped when running `pair create`. For `pair join`, the Windo
 
 ```sh
 jc pair join --server 192.168.56.1:59684 --fingerprint 'paste the certificate fingerprint'
+jc pair list
 jc pair status
 jc client .
 ```
@@ -139,7 +140,9 @@ You can also open another folder with `jc client /home/me/project`. The server u
 
 The server may listen on multiple IPs, but each Linux client stores one server address. Pair with an address reachable from that VM, and pair again if that address changes.
 
-On Windows, `jc pair list` shows pairing names and bound SSH hosts without token hashes. On Linux, `jc pair status` shows the saved server address and certificate fingerprint without the token. Revoke a pairing on Windows:
+`jc pair list` works on both platforms: Windows shows issued pairing names and bound SSH hosts, while Linux shows the locally saved server address and certificate fingerprint. Tokens and token hashes are never displayed. An unpaired machine shows "No pairings". On Linux, `jc pair status` shows the same locally saved information. These commands do not contact the server, so they do not verify availability or revocation.
+
+Run `pair create/revoke` on the Windows server and `pair join/status` on the Linux client. Using the wrong platform reports where to run the specific command. Revoke a pairing on Windows:
 
 ```powershell
 jc pair revoke --name devvm
@@ -181,3 +184,16 @@ Command names take precedence over local folders with the same name. On Windows,
 The CLI supports Simplified Chinese and English. It chooses a default from the system language. Override with `--lang zh-CN`, `--lang en-US`, or the `JC_LANG` environment variable. Example: `jc --lang en-US s --help`.
 
 Run `jc --version` or `jc -v` to check the version, commit, build time, and target platform. Include this output when reporting a problem.
+
+## Request timeouts
+
+`jc client` and `jc pair join` default to a **10-second** timeout for the entire HTTP request, including the TCP connection, TLS handshake, and server response. The TCP connection and TLS handshake each have a **3-second** limit, also bounded by the total request timeout.
+
+Use `--timeout` to change the total timeout for one command. The value must include a unit and be greater than zero:
+
+```sh
+jc c . --timeout 5s
+jc pair join --server 192.168.56.1:59684 --fingerprint 'paste the certificate fingerprint' --timeout 15s
+```
+
+This option is not saved in pairing settings. Connection and handshake limits remain 3 seconds each. Timing starts when the request is sent, excludes the time spent entering a pairing token, and does not control subsequent SSH connections made by VS Code.

@@ -6,7 +6,6 @@ import (
 	"jumpcode/internal/config"
 	"jumpcode/internal/i18n"
 	"jumpcode/internal/pairing"
-	"jumpcode/internal/server"
 
 	"github.com/spf13/cobra"
 )
@@ -15,9 +14,9 @@ func newPairRevokeCommand() *cobra.Command {
 	var name string
 	cmd := &cobra.Command{
 		Use: "revoke", Aliases: []string{"r"},
-		Short: i18n.T("撤销虚拟机配对凭据", "Revoke VM pairing credentials"), Args: cobra.NoArgs,
+		Short: i18n.T("在 Windows 撤销虚拟机配对凭据", "Revoke VM pairing credentials on Windows"), Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := server.CheckPlatform(); err != nil {
+			if err := ensureWindowsPairCommand(cmd.Name()); err != nil {
 				return err
 			}
 			dir, err := config.ServerDir()

@@ -68,22 +68,22 @@ go vet -buildvcs=false ./...
 开发过程中可生成测试快照：
 
 ```sh
-go run ./scripts/release --version v0.1.0-beta.1 --snapshot
+go run ./scripts/release --version v0.1.0 --snapshot
 ```
 
-输出目录为 `dist/v0.1.0-beta.1.snapshot/`。快照版本带 `.snapshot`，存在未提交修改时提交号带 `-dirty`，清单记录 `snapshot` 和 `dirty` 状态。工具拒绝覆盖已有输出目录，构建失败时不会留下完整发布目录。
+输出目录为 `dist/v0.1.0-snapshot/`。正式版本号追加 `-snapshot`，已有预发布后缀的版本号追加 `.snapshot`；存在未提交修改时提交号带 `-dirty`，清单记录 `snapshot` 和 `dirty` 状态。工具拒绝覆盖已有输出目录，构建失败时不会留下完整发布目录。
 
 正式打包前，先完成对应版本的 `docs/releases/<版本>.md` 和 `.en.md`，提交所有源码修改，确保工作区干净，再创建指向当前提交的版本标签：
 
 ```sh
-git tag -a v0.1.0-beta.1 -m '发布 v0.1.0-beta.1'
-go run ./scripts/release --version v0.1.0-beta.1
+git tag -a v0.1.0 -m '发布 v0.1.0'
+go run ./scripts/release --version v0.1.0
 ```
 
-正式产物位于 `dist/v0.1.0-beta.1/`；标签与当前提交不一致或工作区有改动时会拒绝打包。校验文件覆盖两个压缩包和版本清单。在 Linux 中验证：
+正式产物位于 `dist/v0.1.0/`；标签与当前提交不一致或工作区有改动时会拒绝打包。校验文件覆盖两个压缩包和版本清单。在 Linux 中验证：
 
 ```sh
-cd dist/v0.1.0-beta.1
+cd dist/v0.1.0
 sha256sum -c SHA256SUMS
 ```
 
@@ -99,7 +99,7 @@ sha256sum -c SHA256SUMS
 
 ```sh
 git push origin main
-git push origin refs/tags/v0.1.0-beta.1
+git push origin refs/tags/v0.1.0
 ```
 
 Release 工作流先对标签对应的源码执行两平台 CI，再生成并校验发布包。上传全部附件后才公开草稿；带 `-beta` 等预发布后缀的版本会标记为 Pre-release。四个附件为 Windows ZIP、Linux tar.gz、`release.json` 和 `SHA256SUMS`。

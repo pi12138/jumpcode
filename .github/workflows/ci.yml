@@ -41,6 +41,9 @@ jobs:
           files=$(git ls-files '*.go' | xargs gofmt -l)
           if [[ -n "$files" ]]; then
             printf '%s\n' "$files"
+            while IFS= read -r file; do
+              printf '::error file=%s::Go formatting differs; run gofmt on this file.\n' "${file%$'\r'}"
+            done <<< "$files"
             exit 1
           fi
       - name: Vet

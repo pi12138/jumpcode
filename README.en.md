@@ -22,17 +22,17 @@ Linux sends the folder path and pairing credential to Windows over HTTPS. VS Cod
 
 ## Installation
 
-Download `v0.1.0` from [GitHub Releases](https://github.com/pi12138/jumpcode/releases/tag/v0.1.0). The release provides **Windows amd64** and **Linux amd64** binaries for Intel/AMD 64-bit systems. Go is not required. See the [release notes](docs/releases/v0.1.0.en.md) for known limitations.
+Download `v0.1.1` from [GitHub Releases](https://github.com/pi12138/jumpcode/releases/tag/v0.1.1). The release provides **Windows amd64** and **Linux amd64** binaries for Intel/AMD 64-bit systems. Go is not required. See the [release notes](docs/releases/v0.1.1.en.md) for known limitations.
 
 ### Windows
 
-Download the [Windows ZIP](https://github.com/pi12138/jumpcode/releases/download/v0.1.0/jumpcode_v0.1.0_windows_amd64.zip) and [SHA256SUMS](https://github.com/pi12138/jumpcode/releases/download/v0.1.0/SHA256SUMS) to your Downloads folder. Use `Get-FileHash -Algorithm SHA256` on the ZIP and compare the hash with its entry in the checksum file.
+Download the [Windows ZIP](https://github.com/pi12138/jumpcode/releases/download/v0.1.1/jumpcode_v0.1.1_windows_amd64.zip) and [SHA256SUMS](https://github.com/pi12138/jumpcode/releases/download/v0.1.1/SHA256SUMS) to your Downloads folder. Use `Get-FileHash -Algorithm SHA256` on the ZIP and compare the hash with its entry in the checksum file.
 
 Extract it to a stable folder and add that folder to your user `PATH` in PowerShell:
 
 ```powershell
 $jcDir = Join-Path $env:LOCALAPPDATA 'Programs\Jumpcode'
-Expand-Archive -Path "$HOME\Downloads\jumpcode_v0.1.0_windows_amd64.zip" -DestinationPath $jcDir
+Expand-Archive -Path "$HOME\Downloads\jumpcode_v0.1.1_windows_amd64.zip" -DestinationPath $jcDir
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 if (($userPath -split ';') -notcontains $jcDir) {
     [Environment]::SetEnvironmentVariable('Path', "$jcDir;$userPath", 'User')
@@ -48,7 +48,7 @@ New terminals will inherit the updated `PATH`. Windows also needs VS Code deskto
 Download, verify, and install into the current user's `~/.local/bin`:
 
 ```sh
-jc_version=v0.1.0
+jc_version=v0.1.1
 jc_archive="jumpcode_${jc_version}_linux_amd64.tar.gz"
 jc_download_dir="$(mktemp -d)"
 cd "$jc_download_dir"
@@ -92,11 +92,11 @@ jc client .
 
 VS Code on Windows should attempt to open the folder through Remote-SSH. Check its window for the final connection result.
 
-For automatic startup at sign-in, install the task with `jc s startup install --listen auto`. `jc s stop` stops the current server while keeping the task. The current source version adds `jc s start` to run an installed task immediately; the published v0.1.0 release does not include it. See [Server operation and management](docs/usage.en.md#server-operation-and-management) for the full workflow.
+For automatic startup at sign-in, install the task with `jc s startup install --listen auto`. `jc s stop` stops the current server while keeping the task. Run `jc s start` to start an installed task immediately. See [Server operation and management](docs/usage.en.md#server-operation-and-management) for the full workflow.
 
 ## Documentation
 
 - [Usage guide](docs/usage.en.md): initial setup, listen addresses, credentials, background operation, sign-in tasks, and troubleshooting.
 - [Architecture](docs/architecture.en.md): component responsibilities, connection directions, and pairing.
 - [Development guide](docs/development.en.md): source layout, builds, cross-compilation, and verification commands.
-- [v0.1.0 release notes](docs/releases/v0.1.0.en.md): features, artifacts, and known limitations.
+- [v0.1.1 release notes](docs/releases/v0.1.1.en.md): features, artifacts, and known limitations.

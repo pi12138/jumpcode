@@ -41,7 +41,7 @@ $env:Path = "$jcDir;$env:Path"
 jc --version
 ```
 
-New terminals will inherit the updated `PATH`. Windows also needs VS Code desktop, Remote-SSH, and an OpenSSH client. Before upgrading, stop the background server with `jc server stop`, then replace `jc.exe`.
+New terminals will inherit the updated `PATH`. Windows also needs VS Code desktop, Remote-SSH, and an OpenSSH client. Before replacing `jc.exe`, stop a manual background server with `jc server stop`, or a scheduled server with `jc task stop`. See [Upgrades and task configuration](docs/usage.en.md#upgrades-and-task-configuration).
 
 ### Linux
 
@@ -94,7 +94,19 @@ VS Code on Windows should attempt to open the folder through Remote-SSH. Check i
 
 Start the background server manually with `jc s -d`, check it with `jc s status`, and stop it with `jc s stop`. See [Server operation and management](docs/usage.en.md#server-operation-and-management) for details.
 
-The current source version removes automatic startup and the related task commands. The published v0.1.1 release still includes them. If you installed a task, follow [Legacy task cleanup](docs/usage.en.md#legacy-task-cleanup) before upgrading.
+### 3. Enable Windows sign-in startup if needed
+
+The current source version manages Windows sign-in startup through `jc task`. These commands are not included in the published v0.1.1 release. If you started the manual background server above, run `jc s stop` first, then install and start the task:
+
+```powershell
+jc task install --listen auto
+jc task start
+jc task status
+```
+
+Installation only registers the task; `start` runs it immediately. Future sign-ins start it automatically for the current user. `jc task stop` stops the current run. `jc task uninstall` stops the server and removes sign-in startup while preserving credentials and logs.
+
+Task Scheduler directly runs the same `jc.exe server`, which detaches from the console in its own process. Logs are at `%APPDATA%\jumpcode\server.log`. A window may still flash briefly during startup. See [Task management](docs/usage.en.md#task-management). If you installed an older task, follow [Legacy task cleanup](docs/usage.en.md#legacy-task-cleanup) first.
 
 ## Documentation
 

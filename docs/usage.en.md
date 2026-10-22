@@ -37,6 +37,8 @@ These examples use `192.168.56.1` for a Windows address reachable from the VM an
 
    `auto` listens on every private IPv4 address of an active interface, using port `59684`. Choose an address the VM can reach from the status output; the remaining examples use `192.168.56.1:59684`. To limit exposure to one interface, use `--listen 192.168.56.1:59684` instead.
 
+   The current source version also offers [Task management](#task-management) to start automatically when the current user signs in. Choose one mode; the remaining pairing steps are the same.
+
 3. Pair the VM under the same Windows user account:
 
    ```powershell
@@ -82,6 +84,14 @@ Jumpcode uses a short-lived process without a console to open VS Code, so a newl
 
 ## Server operation and management
 
+The server supports three modes. Manual background servers and scheduled servers have separate status and stop commands. Stop the previous mode before switching to avoid port conflicts.
+
+| Mode | Start | Status | Stop | Starts at next sign-in |
+| --- | --- | --- | --- | --- |
+| Foreground | `jc s --listen auto` | Terminal output | `Ctrl+C` | No |
+| Manual background | `jc s --listen auto -d` | `jc s status` | `jc s stop` | No |
+| Scheduled task | Install first, then `jc task start` | `jc task status` | `jc task stop` | Yes |
+
 To run the server in the foreground, start it in a terminal belonging to the signed-in Windows user and keep that terminal open:
 
 ```powershell
@@ -100,22 +110,86 @@ jc s stop
 
 `-d` means `--daemon`. The log is `jumpcode/server.log` under the user's config folder; `daemon.json` in the same folder stores runtime state. Logs record timestamps, PID, version, listen addresses, normal stops, failures, and accepted or failed open requests with failure reasons. Pairing tokens and project paths are excluded. Logs are appended and do not rotate automatically yet. `jc s status` and `jc s stop` manage the background server; use `Ctrl+C` for foreground mode. Start the server manually again after signing out or restarting Windows.
 
-| Action | Command |
-| --- | --- |
-| Run in the foreground | `jc s --listen auto` |
-| Run in the background | `jc s --listen auto -d` |
-| Check the background server | `jc s status` |
-| Stop the background server | `jc s stop` |
-
 ### Legacy task cleanup
 
-The current source version removes `jc s startup`, `jc s start`, and Task Scheduler support. If an older version installed a sign-in task, run this command with **the old jc version** before replacing the executable:
+`jc s startup` and `jc s start` have been removed; use `jc task` for the new interface. If an older version installed a sign-in task, run this command with **the old jc version** before replacing the executable:
 
 ```powershell
 jc s startup uninstall
 ```
 
-This removes the task and stops its server while preserving pairing credentials and certificates. If you already replaced the executable, delete the current user's `Jumpcode Server <user SID>` task in Windows Task Scheduler and run `jc s stop` to stop a background server that is still running. Upgrading alone does not remove existing Windows tasks. Use `jc s -d` to start the server manually afterward.
+This removes the task and stops its server while preserving pairing credentials and certificates. If you already replaced the executable, end and then delete the current user's `Jumpcode Server <user SID>` task in Windows Task Scheduler, and run `jc s stop` to stop any remaining background server from the older version. Upgrading does not update existing tasks. The new installer rejects an existing task with the same name; remove the old task first.
+
+### Task management
+
+This feature is available in the current source version; the published v0.1.1 release does not include `jc task`. Run these commands as the signed-in Windows user. Put `jc.exe` in a permanent installation folder first: the task saves its absolute path. If you used `jc s -d`, run `jc s stop` first; stop a foreground server with `Ctrl+C`. Then install and start the task for the first time:
+
+```powershell
+jc task install --listen auto
+jc task start
+jc task status
+```
+
+Aliases are `t` for `task` and `st` for `status`, for example `jc t st`. Only `install` accepts `--listen`, which is repeatable and defaults to `auto`. Installation saves the configuration; interfaces are discovered when the server actually starts.
+
+| Command | Behavior |
+| --- | --- |
+| `jc task install` | Register a sign-in task for the current user without starting it; reject an existing task with the same name. |
+| `jc task start` | Ask Task Scheduler to start the server and wait up to 10 seconds for readiness; succeed immediately if already ready. |
+| `jc task stop` | Request graceful shutdown through the authenticated local control endpoint and wait up to 10 seconds; succeed if already stopped. |
+| `jc task status` | Show installation, scheduler state, last result, server readiness, PID, listeners, and log location. |
+| `jc task uninstall` | Stop the server before deleting the task; keep the task on stop failure. Retain credentials, certificates, and logs. |
+
+The task is named `Jumpcode Server <current user SID>` and is visible in Windows Task Scheduler. It uses the current user's interactive sign-in session with ordinary privileges. Repeated starts do not create another instance. Execution has no time limit and continues on battery power. Failed runs are retried up to three times at one-minute intervals.
+
+The action directly runs the installed `jc.exe --lang ... server --listen ... --task-run`. Task mode opens the log, calls Windows `FreeConsole` to detach from the console, and then runs the server and stop endpoint in the same PID. The server continues running after its former console closes; use `jc task stop` for graceful shutdown. Management commands exit after use; there is no additional resident launcher or monitor process.
+
+Task mode connects standard input to the null device and sends standard output, standard error, and Go runtime panic output to `server.log`. Detachment happens after process creation, so a window may still flash briefly during startup. The running server does not require an open terminal window. Ordinary CLI commands and foreground `jc server` retain terminal interaction.
+
+Task runtime state is `%APPDATA%\jumpcode\task.json`; manual `jc s -d` state is `daemon.json`. Manage them with `jc task status/stop` and `jc s status/stop` respectively. Both default to the same port, so stop one mode before switching to the other. Management requests and failures append to the shared `%APPDATA%\jumpcode\server.log`.
+
+A start timeout means readiness was not confirmed; the task may still be starting or retrying. Inspect `jc task status` and the log. If graceful stopping fails, inspect the task in Task Scheduler and end it manually if necessary. Task management is Windows only.
+
+### Daily operation and logs
+
+After installation, use `jc task start` and `jc task status`. To restart, stop the server and confirm success before starting it again:
+
+```powershell
+jc task stop
+jc task start
+jc task status
+```
+
+`stop` only stops the current run; the server will still start at the next sign-in. To disable sign-in startup, run `jc task uninstall`. It stops the server and removes the task while retaining pairing credentials, certificates, and logs. You can run `install` and `start` again later.
+
+Read the latest 50 log lines in PowerShell. Append `-Wait` to follow new entries:
+
+```powershell
+Get-Content (Join-Path $env:APPDATA 'jumpcode\server.log') -Tail 50
+```
+
+`jc task status` shows task state, server readiness, and the log path. The scheduler state "Ready (stopped)" means the task can be started, but its server is currently stopped. Check "Server ready" and the bound addresses to confirm the server is available.
+
+### Upgrades and task configuration
+
+When upgrading between versions using the same `jc task` mechanism, **no task reinstall is needed** if the installation path and listeners stay the same:
+
+1. Use the old executable to run `jc task stop` and confirm success.
+2. Replace `jc.exe` at its installed path with the new version. Keep `%APPDATA%\jumpcode`, which holds pairing credentials and certificates.
+3. Run `jc task start` and `jc task status` to confirm readiness.
+
+For manual background mode, stop with `jc s stop` before replacing the executable, then start with `jc s -d`. For foreground mode, stop with `Ctrl+C`. To migrate from the old `startup` mechanism, follow [Legacy task cleanup](#legacy-task-cleanup) first.
+
+To change listeners, uninstall and reinstall the task. This example listens on one interface; replace the address with yours:
+
+```powershell
+jc task uninstall
+jc task install --listen 192.168.56.1:59684
+jc task start
+jc task status
+```
+
+Confirm each command succeeds before continuing. To move the installation, run `jc.exe task uninstall` from the original location first, then move the executable and run `task install` and `task start` from the new location. Installation saves the arguments; later `start` commands do not accept `--listen`. If the server address saved by the client changes, run `jc pair join` again on Linux.
 
 ## Pairing and credentials
 
@@ -154,19 +228,16 @@ Revocation takes effect immediately because the server reads current pairing set
 | Symptom | Check |
 | --- | --- |
 | `--listen auto` fails to start | Check that Windows has an active interface with a private IPv4 address and read the bind error. Use an explicit `--listen IP:port` if needed. One failed bind prevents startup on all addresses. |
-| Pairing from Linux reports a connection failure | Run `jc s status` on Windows and choose a bound address reachable from the VM. Check the Windows firewall for that port. Other addresses selected by `auto` may be unreachable from this VM. |
+| `task start` says the task is missing, or `task install` says it exists | Check installation with `jc task status`. Run `install` if missing. To change an existing task's configuration, run `uninstall` first. Use the legacy cleanup instructions for old tasks. |
+| Task startup times out or the server exits | Check scheduler state, last result, and the log using `jc task status`. Check whether a manual background or foreground server owns the port. A timed-out task may still be starting or retrying. |
+| A terminal stays open after task startup, and closing it stops the server | Check the task action and `jc --version`. Confirm the task uses the current version and old tasks were removed as described above. Current task mode detaches from the console and logs "已脱离控制台". A brief startup flash is still possible. |
+| Pairing from Linux reports a connection failure | Use `jc task status` for task mode, `jc s status` for manual background mode, or terminal output for foreground mode. Choose a bound address reachable from the VM and check the Windows firewall. Other addresses selected by `auto` may be unreachable from this VM. |
 | Fingerprint mismatch or HTTP 401 | Check the fingerprint and token printed during Windows pairing. If the token was lost, revoke with `jc pair revoke --name devvm`, then pair again on Windows and Linux. |
 | The request succeeds but VS Code does not connect | Retry `ssh devvm` on Windows and check Remote-SSH, the registered `vscode://` handler, and the error in the VS Code window. A successful request only confirms that Windows accepted the launch. |
 
-Read the background log from Windows PowerShell:
-
-```powershell
-Get-Content (Join-Path $env:APPDATA 'jumpcode\server.log') -Tail 50
-```
-
 ## Short commands and language
 
-`server` has alias `s`, `client` has alias `c`, top-level `pair` has alias `p`, `revoke` has alias `r`, and server background status has alias `s st`. All pairing credentials are managed through `jc pair`. For example:
+`server` has alias `s`, `client` has alias `c`, top-level `pair` has alias `p`, `task` has alias `t`, `revoke` has alias `r`, and `status` has alias `st`, as in `jc s st` or `jc t st`. All pairing credentials are managed through `jc pair`. For example:
 
 ```powershell
 jc p create --name devvm --ssh-host devvm
@@ -177,7 +248,7 @@ jc p join --server 192.168.56.1:59684 --fingerprint 'paste the certificate finge
 jc c .
 ```
 
-Command names take precedence over local folders with the same name. On Windows, use `jc ./foldername` to open a folder named `pair`, `p`, `s`, or `c`.
+Command names take precedence over local folders with the same name. On Windows, use `jc ./foldername` to open a folder named `pair`, `task`, `p`, `t`, `s`, or `c`.
 
 The CLI supports Simplified Chinese and English. It chooses a default from the system language. Override with `--lang zh-CN`, `--lang en-US`, or the `JC_LANG` environment variable. Example: `jc --lang en-US s --help`.
 

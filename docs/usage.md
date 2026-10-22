@@ -37,6 +37,8 @@
 
    `auto` 会使用端口 `59684` 监听所有启用网卡的私有 IPv4。请从状态输出中选一个**虚拟机能够访问**的地址；以下示例使用 `192.168.56.1:59684`。如果不希望监听其他网卡，改用 `--listen 192.168.56.1:59684`。
 
+   当前源码版也可改用[计划任务管理](#计划任务管理)，实现当前用户登录后自动启动；两种运行方式选一种即可，后续配对步骤相同。
+
 3. 在同一个 Windows 用户下创建配对：
 
    ```powershell
@@ -82,6 +84,14 @@ Windows 通过系统注册的 `vscode://` 协议打开 VS Code：本地目录使
 
 ## 服务端运行与管理
 
+服务端支持以下三种运行方式。手动后台与计划任务分别使用自己的状态、停止命令；切换前先停止原来的服务，避免监听端口冲突。
+
+| 运行方式 | 启动 | 查看状态 | 停止 | 下次登录自动启动 |
+| --- | --- | --- | --- | --- |
+| 前台 | `jc s --listen auto` | 当前终端输出 | `Ctrl+C` | 否 |
+| 手动后台 | `jc s --listen auto -d` | `jc s status` | `jc s stop` | 否 |
+| 计划任务 | 先安装，再 `jc task start` | `jc task status` | `jc task stop` | 是 |
+
 若不使用后台模式，可在 Windows 当前登录用户的终端前台启动服务端，保持该终端运行：
 
 ```powershell
@@ -100,22 +110,86 @@ jc s stop
 
 后台日志位于用户配置目录的 `jumpcode/server.log`，运行状态保存在同目录的 `daemon.json`。日志记录时间、PID、版本、监听地址、正常停止、异常退出，以及打开请求的成功或失败原因；配对密钥和项目路径不写入日志。日志追加写入，当前没有自动轮转。`jc s status` 和 `jc s stop` 管理后台服务，前台模式用 `Ctrl+C` 停止。退出登录或重启后，需要再次手动启动服务。
 
-| 操作 | 命令 |
-| --- | --- |
-| 前台运行 | `jc s --listen auto` |
-| 后台运行 | `jc s --listen auto -d` |
-| 查看后台服务 | `jc s status` |
-| 停止后台服务 | `jc s stop` |
-
 ### 旧版任务清理
 
-当前源码版已移除 `jc s startup`、`jc s start` 和计划任务支持。如果旧版曾安装过登录启动任务，请在替换程序前使用**旧版 jc** 执行：
+`jc s startup` 和 `jc s start` 已移除，新版管理入口为 `jc task`。如果旧版曾安装过登录启动任务，请在替换程序前使用**旧版 jc** 执行：
 
 ```powershell
 jc s startup uninstall
 ```
 
-该命令会移除任务并停止任务启动的服务，保留配对凭据和证书。如果已经替换程序，可在 Windows 任务计划程序中删除当前用户的 `Jumpcode Server <用户 SID>` 任务，并执行 `jc s stop` 停止仍在运行的后台服务。升级本身不会删除 Windows 中已有的任务。之后使用 `jc s -d` 手动启动。
+该命令会移除任务并停止任务启动的服务，保留配对凭据和证书。如果已经替换程序，请在 Windows 任务计划程序中先结束、再删除当前用户的 `Jumpcode Server <用户 SID>` 任务，并执行 `jc s stop` 停止旧版仍在运行的后台服务。升级本身不会更新已有任务；新版安装遇到同名任务会报错，请清理旧任务后重新安装。
+
+### 计划任务管理
+
+此功能属于当前源码版，已发布的 v0.1.1 不包含 `jc task`。在 Windows 当前登录用户的终端执行，先将 `jc.exe` 放在固定安装目录，任务会保存它的绝对路径。如果之前使用 `jc s -d`，先执行 `jc s stop`；前台服务则先按 `Ctrl+C` 停止。然后首次安装并启动任务：
+
+```powershell
+jc task install --listen auto
+jc task start
+jc task status
+```
+
+`task` 可简写为 `t`，`status` 可简写为 `st`，例如 `jc t st`。只有安装命令接受 `--listen`，可重复指定，默认 `auto`。安装时保存配置，服务实际启动时再识别网卡地址。
+
+| 命令 | 行为 |
+| --- | --- |
+| `jc task install` | 注册当前用户的登录自启任务，不立即启动；已有同名任务时拒绝覆盖。 |
+| `jc task start` | 请求任务计划程序启动，最多等待 10 秒确认服务就绪；已经就绪则直接成功。 |
+| `jc task stop` | 通过带令牌认证的本机控制接口请求正常退出，最多等待 10 秒；已停止则成功。 |
+| `jc task status` | 显示安装情况、调度器状态、上次结果、服务就绪情况、PID、监听地址和日志位置。 |
+| `jc task uninstall` | 先停止服务再删除任务；停止失败时保留任务并报错，凭据、证书和日志保留。 |
+
+任务名为 `Jumpcode Server <当前用户 SID>`，可在 Windows“任务计划程序”中查看。任务使用当前用户的交互登录会话和普通权限，在该用户登录后启动；重复启动不会创建新实例，没有最长运行时间限制，切换到电池供电也不会自动停止。异常退出会以 1 分钟间隔重试，最多 3 次。
+
+任务动作直接执行安装目录中的 `jc.exe --lang ... server --listen ... --task-run`。任务模式先打开日志，再调用 Windows `FreeConsole` 脱离控制台，随后在同一个 PID 中运行服务并提供停止接口。原控制台关闭后，服务继续运行；使用 `jc task stop` 正常停止。管理命令临时运行后退出，服务运行期间没有额外常驻 launcher 或监控进程。
+
+任务模式的标准输入连接到空设备，标准输出、错误输出及 Go runtime 的 panic 输出写入 `server.log`。控制台关联在程序启动后解除，启动瞬间仍可能短暂闪窗，但服务运行不需要保持终端窗口。普通 CLI 命令和前台 `jc server` 保留终端交互。
+
+任务服务运行状态保存在 `%APPDATA%\jumpcode\task.json`，手动 `jc s -d` 的状态保存在 `daemon.json`；分别使用 `jc task status/stop` 和 `jc s status/stop` 管理。两种模式默认使用相同端口，切换前请先停止另一种模式。日志统一追加到 `%APPDATA%\jumpcode\server.log`，包括管理请求和失败原因。
+
+启动超时表示尚未确认就绪，任务可能仍在启动或自动重试，请查看 `jc task status` 和日志。正常停止失败时可在任务计划程序中检查任务，必要时手动结束。任务管理功能仅支持 Windows。
+
+### 日常启停与查看日志
+
+已安装任务后，日常使用 `jc task start` 和 `jc task status`。需要重启时，先停止，确认命令成功后再启动：
+
+```powershell
+jc task stop
+jc task start
+jc task status
+```
+
+`stop` 只停止本次运行，保留登录自启；下次登录仍会启动。要关闭登录自启，执行 `jc task uninstall`，它会先停止服务、再移除任务，保留配对凭据、证书和日志。以后可重新 `install`、`start`。
+
+在 PowerShell 中查看最近 50 行日志；需要持续跟踪时，在末尾加 `-Wait`：
+
+```powershell
+Get-Content (Join-Path $env:APPDATA 'jumpcode\server.log') -Tail 50
+```
+
+`jc task status` 会显示任务状态、服务是否就绪和日志路径。调度器的“就绪（未运行）”表示任务可以被启动，服务当前尚未运行；应以“服务已就绪”和实际监听地址判断服务能否使用。
+
+### 升级与修改任务配置
+
+同一套 `jc task` 实现之间升级，安装路径和监听配置不变时，**无需重新安装任务**：
+
+1. 用原版本执行 `jc task stop`，确认停止成功。
+2. 用新版覆盖原路径的 `jc.exe`。不要删除 `%APPDATA%\jumpcode`，配对凭据和证书都保存在其中。
+3. 执行 `jc task start`、`jc task status`，确认新服务就绪。
+
+手动后台模式在替换前用 `jc s stop` 停止，替换后用 `jc s -d` 启动；前台模式先按 `Ctrl+C`。从旧版 `startup` 机制迁移时，先按[旧版任务清理](#旧版任务清理)操作。
+
+修改监听地址需要先卸载再安装。以下示例仅监听指定网卡，地址请按实际情况替换：
+
+```powershell
+jc task uninstall
+jc task install --listen 192.168.56.1:59684
+jc task start
+jc task status
+```
+
+每一步成功后再执行下一步。移动安装目录时，先用原位置的 `jc.exe task uninstall`，再移动程序，从新位置执行 `task install`、`task start`。安装参数会写入任务，之后的 `start` 不接受 `--listen`。若客户端保存的服务端地址也发生变化，需要在 Linux 重新执行 `jc pair join`。
 
 ## 配对与凭据
 
@@ -154,19 +228,16 @@ server 在处理请求时读取最新配对配置，因此撤销立即生效。W
 | 现象 | 检查方法 |
 | --- | --- |
 | `--listen auto` 启动失败 | 检查 Windows 是否有已启用的私有 IPv4 网卡，以及输出中的具体绑定错误；必要时改用明确的 `--listen IP:端口`。任一候选地址绑定失败会使整个启动失败。 |
-| Linux 配对时报“连接失败” | 在 Windows 执行 `jc s status`，确认选择的是实际监听且虚拟机可达的地址；检查 Windows 防火墙是否允许虚拟机访问该端口。`auto` 选出的其他网卡地址不一定对这台虚拟机可达。 |
+| `task start` 提示未安装，或 `task install` 提示已存在 | 先用 `jc task status` 查看安装情况；未安装时执行 `install`。已有任务需要修改配置时先 `uninstall`；旧版任务按上文清理。 |
+| 任务启动超时或启动后退出 | 查看 `jc task status` 的调度器状态、上次结果和日志；检查是否有手动后台或前台服务占用端口。超时后任务可能仍在启动或重试。 |
+| 任务启动后终端窗口一直存在，关闭后服务也停止 | 核对任务动作和 `jc --version`，确认运行的是当前版本且已按迁移说明清理旧任务。当前任务模式会脱离控制台，日志应出现“已脱离控制台”；短暂闪窗仍可能发生。 |
+| Linux 配对时报“连接失败” | 计划任务模式执行 `jc task status`，手动后台模式执行 `jc s status`，前台模式查看终端；确认选择的是实际监听且虚拟机可达的地址，再检查 Windows 防火墙。`auto` 选出的其他网卡地址不一定对这台虚拟机可达。 |
 | 指纹不匹配或返回 401 | 核对 Windows 配对输出中的证书指纹和密钥，不要把两个值混用。如果密钥丢失，在 Windows 用 `jc pair revoke --name devvm` 撤销，再创建新配对并在 Linux 重新配对。 |
 | Linux 显示请求成功，但 VS Code 未连上项目 | 在 Windows 再次运行 `ssh devvm`，检查 Remote-SSH 扩展、`vscode://` 协议注册和 VS Code 窗口中的报错。请求成功只表示 Windows 接受了打开请求。 |
 
-后台日志可在 Windows PowerShell 中查看：
-
-```powershell
-Get-Content (Join-Path $env:APPDATA 'jumpcode\server.log') -Tail 50
-```
-
 ## 短命令与语言
 
-`server` 可简写为 `s`，`client` 可简写为 `c`，顶层 `pair` 可简写为 `p`，撤销 `revoke` 可简写为 `r`，服务后台状态 `server status` 可简写为 `s st`。配对凭据统一通过 `jc pair` 管理。例如：
+`server` 可简写为 `s`，`client` 可简写为 `c`，顶层 `pair` 可简写为 `p`，`task` 可简写为 `t`，撤销 `revoke` 可简写为 `r`，`status` 可简写为 `st`，例如 `jc s st`、`jc t st`。配对凭据统一通过 `jc pair` 管理。例如：
 
 ```powershell
 jc p create --name devvm --ssh-host devvm
@@ -177,7 +248,7 @@ jc p join --server 192.168.56.1:59684 --fingerprint '粘贴证书指纹'
 jc c .
 ```
 
-命令名优先于同名本地目录。如果 Windows 当前目录下有 `pair`、`p`、`s` 或 `c` 文件夹，请使用 `jc ./目录名` 打开。
+命令名优先于同名本地目录。如果 Windows 当前目录下有 `pair`、`task`、`p`、`t`、`s` 或 `c` 文件夹，请使用 `jc ./目录名` 打开。
 
 CLI 支持简体中文和英文，默认根据系统语言选择；可用 `--lang zh-CN` 或 `--lang en-US` 指定，也可设置环境变量 `JC_LANG`。例如 `jc --lang en-US s --help`。
 

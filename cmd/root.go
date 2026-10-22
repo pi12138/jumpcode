@@ -63,7 +63,7 @@ func newRootCommand() *cobra.Command {
 		fmt.Fprintln(cmd.OutOrStdout(), cmd.Short)
 		fmt.Fprint(cmd.OutOrStdout(), usage)
 	})
-	root.AddCommand(newServerCommand(), newClientCommand(), newPairCommand())
+	root.AddCommand(newServerCommand(), newClientCommand(), newPairCommand(), newTaskCommand())
 	root.SetHelpCommand(&cobra.Command{
 		Use: "help [command]", Short: i18n.T("查看命令帮助", "Help about a command"),
 		RunE: func(_ *cobra.Command, args []string) error {

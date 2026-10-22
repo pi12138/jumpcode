@@ -34,6 +34,11 @@ func TestShortCommands(t *testing.T) {
 		{[]string{"c"}, "client"},
 		{[]string{"s", "st"}, "status"},
 		{[]string{"s", "stop"}, "stop"},
+		{[]string{"task", "install"}, "install"},
+		{[]string{"t", "uninstall"}, "uninstall"},
+		{[]string{"t", "start"}, "start"},
+		{[]string{"t", "stop"}, "stop"},
+		{[]string{"t", "st"}, "status"},
 	} {
 		cmd, remaining, err := root.Find(tc.args)
 		if err != nil || cmd.Name() != tc.name || len(remaining) != 0 {
@@ -49,7 +54,6 @@ func TestServerRejectsRemovedStartupCommands(t *testing.T) {
 		{"s", "startup", "uninstall"},
 		{"server", "start"},
 		{"s", "start"},
-		{"server", "--task-run"},
 	} {
 		root := newRootCommand()
 		root.SetArgs(args)

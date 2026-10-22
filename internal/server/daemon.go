@@ -29,8 +29,12 @@ type daemonState struct {
 func statePath(dir string) string { return filepath.Join(dir, "daemon.json") }
 
 func readDaemonState(dir string) (daemonState, error) {
+	return readControlState(statePath(dir))
+}
+
+func readControlState(file string) (daemonState, error) {
 	var state daemonState
-	data, err := os.ReadFile(statePath(dir))
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return state, err
 	}
@@ -52,8 +56,12 @@ func readDaemonState(dir string) (daemonState, error) {
 }
 
 func daemonRequest(state daemonState, method string) error {
+	return controlRequest(context.Background(), state, method)
+}
+
+func controlRequest(ctx context.Context, state daemonState, method string) error {
 	client := &http.Client{Timeout: time.Second}
-	req, err := http.NewRequest(method, "http://"+state.Control+"/control", nil)
+	req, err := http.NewRequestWithContext(ctx, method, "http://"+state.Control+"/control", nil)
 	if err != nil {
 		return err
 	}
@@ -117,6 +125,10 @@ func stateListenAddresses(state daemonState) []string {
 }
 
 func serveDaemonControl(dir string, addresses []string, mainServer *http.Server) (func(), error) {
+	return serveControl(statePath(dir), addresses, mainServer)
+}
+
+func serveControl(file string, addresses []string, mainServer *http.Server) (func(), error) {
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
@@ -148,15 +160,15 @@ func serveDaemonControl(dir string, addresses []string, mainServer *http.Server)
 		}
 	})
 	go control.Serve(listener)
-	if err := config.WriteJSON(statePath(dir), state); err != nil {
+	if err := config.WriteJSON(file, state); err != nil {
 		control.Close()
 		return nil, err
 	}
 	return func() {
 		control.Close()
-		current, err := readDaemonState(dir)
+		current, err := readControlState(file)
 		if err == nil && current.Token == state.Token {
-			os.Remove(statePath(dir))
+			os.Remove(file)
 		}
 	}, nil
 }

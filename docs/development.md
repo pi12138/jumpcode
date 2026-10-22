@@ -36,11 +36,12 @@ cmd/
   root.go            根命令、语言初始化与统一错误处理
   client.go          客户端打开命令
   server*.go         服务和后台管理子命令
+  task*.go           计划任务管理的五个子命令
   pair*.go           配对管理子命令
   token.go           配对密钥的终端输入
 internal/
   client/            Linux 客户端配对验证与打开请求
-  server/            HTTPS 服务、多 IP 监听与后台进程
+  server/            HTTPS 服务、多 IP 监听、后台进程与原生计划任务管理
   pairing/           配对凭据的创建、SSH 主机绑定与撤销
   config/            用户配置、证书与私钥的持久化
   protocol/          共享请求结构、地址校验、密钥哈希与 TLS 指纹校验
@@ -58,6 +59,8 @@ go test -buildvcs=false ./...
 go test -race -buildvcs=false ./...
 go vet -buildvcs=false ./...
 ```
+
+`internal/server/task*.go` 实现任务生命周期、XML 定义、Windows COM 调用及任务进程脱离控制台，复用现有 `golang.org/x/sys/windows`，没有新增依赖。Linux 测试使用模拟调度器验证就绪等待、正常停止、错误传播和状态隔离；Windows 测试额外调用原生调度器验证 Unicode XML（仅验证，不注册任务）。控制台测试在隔离子进程中创建真实控制台，验证任务模式脱离后 PID 不变、服务仍然可用、标准输出和 panic 写入日志，避免修改测试主进程的控制台和标准流。跨平台编译不能验证 Windows 桌面的窗口表现，需使用实际产物测试 `jc task` 的安装、启动、停止、登录触发及瞬间闪窗情况。
 
 ## 版本与发布打包
 

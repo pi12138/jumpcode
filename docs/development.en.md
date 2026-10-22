@@ -35,11 +35,12 @@ cmd/
   root.go            Root command, language initialization, and error handling
   client.go          Client open command
   server*.go         Server and background management subcommands
+  task*.go           Five task management subcommands
   pair*.go           Pairing management subcommands
   token.go           Pairing token input from the terminal
 internal/
   client/            Linux client pairing verification and open requests
-  server/            HTTPS server, multiple listeners, and background process
+  server/            HTTPS server, multiple listeners, background process, and native task management
   pairing/           Pairing credentials, SSH host binding, and revocation
   config/            User settings, certificate, and private key persistence
   protocol/          Shared requests, address validation, token hashes, and TLS fingerprint checks
@@ -57,6 +58,8 @@ go test -buildvcs=false ./...
 go test -race -buildvcs=false ./...
 go vet -buildvcs=false ./...
 ```
+
+`internal/server/task*.go` implements lifecycle management, XML definitions, Windows COM calls, and console detachment using the existing `golang.org/x/sys/windows` dependency. Linux tests use a fake scheduler to verify readiness waiting, graceful stops, error propagation, and state isolation. Windows tests additionally validate Unicode XML through the native scheduler without registering a task. Console tests create a real console in an isolated child process and verify that detachment preserves the PID, the server remains available, and standard output and panic traces reach the log, without changing the main test process's console or streams. Cross-compilation cannot verify Windows desktop window behavior; test installation, start, stop, sign-in triggering, and any startup flash with the actual binary.
 
 ## Version and release packaging
 

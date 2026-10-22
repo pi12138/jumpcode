@@ -41,7 +41,7 @@ $env:Path = "$jcDir;$env:Path"
 jc --version
 ```
 
-后续新开的终端会使用更新后的 `PATH`。Windows 还需要安装 VS Code 桌面版、Remote-SSH 扩展和 OpenSSH 客户端。升级前先用 `jc server stop` 停止后台服务，再替换 `jc.exe`。
+后续新开的终端会使用更新后的 `PATH`。Windows 还需要安装 VS Code 桌面版、Remote-SSH 扩展和 OpenSSH 客户端。替换 `jc.exe` 前，手动后台模式用 `jc server stop` 停止服务，计划任务模式用 `jc task stop`；详见[升级与修改任务配置](docs/usage.md#升级与修改任务配置)。
 
 ### Linux
 
@@ -94,7 +94,19 @@ Windows 上的 VS Code 会尝试通过 Remote-SSH 打开该目录，最终连接
 
 使用 `jc s -d` 手动启动后台服务，`jc s status` 查看状态，`jc s stop` 停止服务。完整操作见[服务端运行与管理](docs/usage.md#服务端运行与管理)。
 
-当前源码版已移除自动启动功能及相关计划任务命令；已发布的 v0.1.1 仍包含该功能。曾安装过任务的用户，请按[旧版任务清理说明](docs/usage.md#旧版任务清理)在升级前卸载任务。
+### 3. 按需启用 Windows 登录自启
+
+当前源码版通过 `jc task` 管理 Windows 登录自启；已发布的 v0.1.1 尚不提供这组命令。如果已按上文启动手动后台服务，先执行 `jc s stop`，再安装并启动任务：
+
+```powershell
+jc task install --listen auto
+jc task start
+jc task status
+```
+
+安装只注册任务，`start` 立即启动，以后在当前用户登录后自动启动。`jc task stop` 停止本次运行；`jc task uninstall` 停止服务并移除登录自启，保留配对凭据和日志。
+
+任务计划程序直接运行同一个 `jc.exe server`，服务在自身进程中脱离控制台，日志位于 `%APPDATA%\jumpcode\server.log`。启动瞬间仍可能短暂闪窗。详见[计划任务管理](docs/usage.md#计划任务管理)。曾安装旧版任务的用户，请先按[旧版任务清理说明](docs/usage.md#旧版任务清理)卸载旧任务。
 
 ## 文档
 

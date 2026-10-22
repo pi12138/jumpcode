@@ -12,22 +12,25 @@ import (
 
 func newServerCommand() *cobra.Command {
 	var listen []string
-	var daemon, child bool
+	var daemon, child, taskRun bool
 	cmd := &cobra.Command{
 		Use:     "server",
 		Aliases: []string{"s"},
 		Short:   i18n.T("在 Windows 桌面会话中运行局域网服务端", "Run the LAN server in a Windows desktop session"),
 		Args:    cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if daemon && child || taskRun && (daemon || child) {
+				return errors.New(i18n.T("后台参数不能组合使用", "Daemon options cannot be combined"))
+			}
 			dir, err := config.ServerDir()
 			if err != nil {
 				return err
 			}
-			if daemon && child {
-				return errors.New(i18n.T("后台参数不能组合使用", "Daemon options cannot be combined"))
-			}
 			if daemon {
 				return server.StartBackground(dir, listen)
+			}
+			if taskRun {
+				return server.RunTask(dir, listen)
 			}
 			return server.Run(dir, listen, child)
 		},
@@ -36,6 +39,8 @@ func newServerCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&daemon, "daemon", "d", false, i18n.T("在当前 Windows 用户会话中后台运行", "Run in the current Windows user session in the background"))
 	cmd.Flags().BoolVar(&child, "daemon-child", false, "internal")
 	cmd.Flags().MarkHidden("daemon-child")
+	cmd.Flags().BoolVar(&taskRun, "task-run", false, "internal")
+	cmd.Flags().MarkHidden("task-run")
 	cmd.AddCommand(newServerStatusCommand(), newServerStopCommand())
 	return cmd
 }

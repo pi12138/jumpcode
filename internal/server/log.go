@@ -15,7 +15,7 @@ import (
 
 func runLoggedServer(dir string, specs []string) error {
 	return withServerLog(dir, specs, func(logger *log.Logger) error {
-		return runServerWithLog(dir, specs, true, logger)
+		return runServerWithLog(dir, specs, statePath(dir), logger)
 	})
 }
 

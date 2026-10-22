@@ -8,6 +8,8 @@ flowchart LR
     Server -->|"vscode:// 打开请求"| VSCode["Windows 桌面<br/>VS Code + Remote-SSH"]
     VSCode -->|"SSH：访问项目文件"| VM["Linux 虚拟机<br/>项目目录"]
     WindowsCLI["Windows 终端<br/>jc 目录或主机:目录"] -->|"直接发送 vscode:// 请求"| VSCode
+    TaskCLI["jc task install/start/stop/status/uninstall"] --> Scheduler["Windows 任务计划程序"]
+    Scheduler -->|"登录或按需直接启动 jc server"| Server
 ```
 
 这里有两条不同的连接：Linux 到 Windows 的 HTTPS 传输目录路径和认证信息等**控制信息，不传项目文件**；Windows 上的 VS Code 再通过 SSH 连接 Linux，读取和编辑项目文件。使用 Linux 发起方式时，Windows 必须能 SSH 登录虚拟机，虚拟机也必须能访问 Windows 服务端的监听地址。仅从 Windows 执行 `jc devvm:/home/me/project` 时，走图中的直接打开路径，不经过 `jc server`；打开 Windows 本地目录则连 SSH 也不需要。
@@ -17,8 +19,11 @@ flowchart LR
 | 组件 | 运行位置与职责 |
 | --- | --- |
 | `jc server` | 在当前登录用户的 Windows 会话中监听 HTTPS，验证客户端凭据，并通过 Windows 注册的 `vscode://` 协议请求打开 VS Code。可手动以前台或后台方式运行。 |
+| `jc task` | 通过 Windows 原生 Task Scheduler COM 接口注册、启动、查询和删除登录自启任务；通过本机认证控制接口请求服务正常停止。任务直接运行同一个 `jc.exe server`。 |
 | `jc client` | 在 Linux 虚拟机中临时运行；把目录解析为绝对路径，向已配对的 Windows 服务端发送请求，不常驻后台。 |
 | VS Code + Remote-SSH | 运行在 Windows 桌面；真正建立到 Linux 的 SSH 连接。Jumpcode 只能确认打开请求已被接受，最终连接结果以 VS Code 窗口为准。 |
+
+任务模式中，计划任务启动的进程先通过 `FreeConsole` 脱离控制台，再直接执行服务逻辑，运行状态中的 PID 来自该进程；标准输出和错误输出连接到服务日志。管理命令执行完成后退出，没有额外常驻监控进程。任务状态使用 `task.json`，手动后台模式使用 `daemon.json`，各自的查询和停止命令按对应文件访问本机控制接口。两种模式共用日志、配对记录和证书。
 
 ## 配对与身份校验
 

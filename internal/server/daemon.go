@@ -21,7 +21,7 @@ import (
 type daemonState struct {
 	PID       int      `json:"pid"`
 	Address   string   `json:"address"`
-	Addresses []string `json:"addresses,omitempty"`
+	Addresses []string `json:"addresses"`
 	Control   string   `json:"control"`
 	Token     string   `json:"token"`
 }
@@ -41,7 +41,7 @@ func readControlState(file string) (daemonState, error) {
 	if err = json.Unmarshal(data, &state); err != nil {
 		return state, err
 	}
-	if state.PID <= 0 || state.Address == "" || state.Control == "" || state.Token == "" {
+	if state.PID <= 0 || state.Address == "" && state.Addresses == nil || state.Control == "" || state.Token == "" {
 		return state, errors.New(i18n.T("后台状态文件无效", "Invalid daemon state file"))
 	}
 	host, port, err := net.SplitHostPort(state.Control)
@@ -118,30 +118,49 @@ func Stop(dir string) error {
 }
 
 func stateListenAddresses(state daemonState) []string {
-	if len(state.Addresses) > 0 {
+	if state.Addresses != nil {
 		return state.Addresses
+	}
+	if state.Address == "" {
+		return nil
 	}
 	return []string{state.Address}
 }
 
 func serveDaemonControl(dir string, addresses []string, mainServer *http.Server) (func(), error) {
-	return serveControl(statePath(dir), addresses, mainServer)
+	_, cleanup, err := serveControl(statePath(dir), addresses, mainServer)
+	return cleanup, err
 }
 
-func serveControl(file string, addresses []string, mainServer *http.Server) (func(), error) {
+// 返回的更新函数由监听管理循环串行调用，控制端点只读取不变的令牌。
+func serveControl(file string, addresses []string, mainServer *http.Server) (func([]string) error, func(), error) {
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
 		listener.Close()
-		return nil, err
+		return nil, nil, err
 	}
-	state := daemonState{PID: os.Getpid(), Address: addresses[0], Addresses: addresses, Control: listener.Addr().String(), Token: base64.RawURLEncoding.EncodeToString(secret)}
+	token := base64.RawURLEncoding.EncodeToString(secret)
+	state := daemonState{PID: os.Getpid(), Control: listener.Addr().String(), Token: token}
+	update := func(addresses []string) error {
+		next := state
+		next.Addresses = append([]string{}, addresses...)
+		next.Address = ""
+		if len(addresses) > 0 {
+			next.Address = addresses[0]
+		}
+		if err := config.WriteJSON(file, next); err != nil {
+			return err
+		}
+		state = next
+		return nil
+	}
 	control := &http.Server{ReadHeaderTimeout: 3 * time.Second}
 	control.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer "+state.Token {
+		if r.Header.Get("Authorization") != "Bearer "+token {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -160,14 +179,14 @@ func serveControl(file string, addresses []string, mainServer *http.Server) (fun
 		}
 	})
 	go control.Serve(listener)
-	if err := config.WriteJSON(file, state); err != nil {
+	if err := update(addresses); err != nil {
 		control.Close()
-		return nil, err
+		return nil, nil, err
 	}
-	return func() {
+	return update, func() {
 		control.Close()
 		current, err := readControlState(file)
-		if err == nil && current.Token == state.Token {
+		if err == nil && current.Token == token {
 			os.Remove(file)
 		}
 	}, nil

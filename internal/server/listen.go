@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"jumpcode/internal/i18n"
 	"jumpcode/internal/protocol"
 )
 
@@ -45,17 +46,27 @@ func autoListenPort(spec string) (string, bool, error) {
 	return port, true, nil
 }
 
+func hasAutoListen(specs []string) bool {
+	for _, spec := range specs {
+		if _, auto, _ := autoListenPort(spec); auto {
+			return true
+		}
+	}
+	return false
+}
+
 func resolveListenAddresses(specs []string) ([]string, error) {
 	specs, err := normalizeListenSpecs(specs)
 	if err != nil {
 		return nil, err
 	}
 	var candidates []string
+	resolved := false
 	seen := make(map[string]bool)
 	var addresses []string
 	for _, spec := range specs {
 		if port, ok, _ := autoListenPort(spec); ok {
-			if candidates == nil {
+			if !resolved {
 				interfaces, err := net.Interfaces()
 				if err != nil {
 					return nil, fmt.Errorf("枚举网卡失败: %w", err)
@@ -64,9 +75,7 @@ func resolveListenAddresses(specs []string) ([]string, error) {
 				if err != nil {
 					return nil, err
 				}
-				if len(candidates) == 0 {
-					return nil, fmt.Errorf("没有可用的私有 IPv4 地址，请使用 --listen 指定地址")
-				}
+				resolved = true
 			}
 			for _, ip := range candidates {
 				address := net.JoinHostPort(ip, port)
@@ -119,6 +128,9 @@ func autoIPv4Candidates(interfaces []net.Interface, addrs func(net.Interface) ([
 }
 
 func formatListenAddresses(addresses []string) string {
+	if len(addresses) == 0 {
+		return i18n.T("暂无监听地址，等待网络恢复或绑定重试", "No listeners; waiting for the network or a bind retry")
+	}
 	urls := make([]string, len(addresses))
 	for i, address := range addresses {
 		urls[i] = "https://" + address

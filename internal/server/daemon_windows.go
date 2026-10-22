@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"syscall"
 	"time"
 
@@ -16,7 +15,7 @@ import (
 )
 
 func StartBackground(dir string, specs []string) error {
-	addresses, err := resolveListenAddresses(specs)
+	specs, err := normalizeListenSpecs(specs)
 	if err != nil {
 		return err
 	}
@@ -39,8 +38,8 @@ func StartBackground(dir string, specs []string) error {
 	}
 	defer log.Close()
 	args := []string{"--lang", i18n.Language, "server"}
-	for _, address := range addresses {
-		args = append(args, "--listen", address)
+	for _, spec := range specs {
+		args = append(args, "--listen", spec)
 	}
 	args = append(args, "--daemon-child")
 	cmd := exec.Command(exe, args...)
@@ -54,8 +53,8 @@ func StartBackground(dir string, specs []string) error {
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		state, err := readDaemonState(dir)
-		if err == nil && state.PID == cmd.Process.Pid && slices.Equal(stateListenAddresses(state), addresses) && daemonRequest(state, "GET") == nil {
-			fmt.Printf(i18n.T("后台服务已启动：PID %d，%s\n日志：%s\n", "Background server started: PID %d, %s\nLog: %s\n"), state.PID, formatListenAddresses(addresses), logPath)
+		if err == nil && state.PID == cmd.Process.Pid && daemonRequest(state, "GET") == nil {
+			fmt.Printf(i18n.T("后台服务已启动：PID %d，%s\n日志：%s\n", "Background server started: PID %d, %s\nLog: %s\n"), state.PID, formatListenAddresses(stateListenAddresses(state)), logPath)
 			return nil
 		}
 		time.Sleep(100 * time.Millisecond)

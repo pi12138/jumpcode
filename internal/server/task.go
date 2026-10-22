@@ -172,9 +172,12 @@ func (m taskManager) start(ctx context.Context) error {
 		if checkErr == nil {
 			checkErr = controlRequest(ctx, state, http.MethodGet)
 		}
-		if checkErr == nil && task.State == 4 {
+		if checkErr == nil && task.State == 4 && len(stateListenAddresses(state)) > 0 {
 			fmt.Printf(i18n.T("计划任务服务已就绪：PID %d，%s\n日志：%s\n", "Task server ready: PID %d, %s\nLog: %s\n"), state.PID, formatListenAddresses(stateListenAddresses(state)), filepath.Join(m.dir, "server.log"))
 			return nil
+		}
+		if checkErr == nil && len(stateListenAddresses(state)) == 0 {
+			checkErr = errors.New(formatListenAddresses(nil))
 		}
 		if err := taskPoll(ctx); err != nil {
 			return i18n.Errorf("计划任务已请求启动，但服务未在等待时间内就绪（可能仍在启动或重试）；调度器状态 %d，上次结果 0x%08X，控制接口检查: %v；日志：%s: %w", "Task start requested, but the server was not ready in time (it may still be starting or retrying); scheduler state %d, last result 0x%08X, control check: %v; log: %s: %w", task.State, task.LastResult, checkErr, filepath.Join(m.dir, "server.log"), err)
@@ -241,7 +244,11 @@ func (m taskManager) status() error {
 		return stateErr
 	}
 	if stateErr == nil && daemonRequest(state, http.MethodGet) == nil {
-		fmt.Printf(i18n.T("服务已就绪：PID %d，%s\n", "Server ready: PID %d, %s\n"), state.PID, formatListenAddresses(stateListenAddresses(state)))
+		if len(stateListenAddresses(state)) == 0 {
+			fmt.Printf(i18n.T("服务运行中但尚未就绪：PID %d，%s\n", "Server running but not ready: PID %d, %s\n"), state.PID, formatListenAddresses(nil))
+		} else {
+			fmt.Printf(i18n.T("服务已就绪：PID %d，%s\n", "Server ready: PID %d, %s\n"), state.PID, formatListenAddresses(stateListenAddresses(state)))
+		}
 	} else {
 		fmt.Println(i18n.T("服务未就绪（未运行或正在启动）", "Server is not ready (stopped or starting)"))
 	}

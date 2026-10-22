@@ -37,7 +37,7 @@ These examples use `192.168.56.1` for a Windows address reachable from the VM an
 
    `auto` listens on every private IPv4 address of an active interface, using port `59684`. Choose an address the VM can reach from the status output; the remaining examples use `192.168.56.1:59684`. To limit exposure to one interface, use `--listen 192.168.56.1:59684` instead.
 
-   The current source version also offers [Task management](#task-management) to start automatically when the current user signs in. Choose one mode; the remaining pairing steps are the same.
+   You can also use [Task management](#task-management) to start automatically when the current user signs in. Choose one mode; the remaining pairing steps are the same.
 
 3. Pair the VM under the same Windows user account:
 
@@ -98,7 +98,7 @@ To run the server in the foreground, start it in a terminal belonging to the sig
 jc server --listen 192.168.56.1:59684
 ```
 
-Replace the listen option with `--listen auto`, or repeat it, for example `--listen 192.168.56.1:59684 --listen 192.168.1.10:59684`. With no `--listen`, the server uses `auto`: it binds every private IPv4 address on an active interface, using port `59684`. Use `--listen auto:59700` for another port; explicit addresses can be combined with `auto`. Automatic selection may include VPN and virtual adapters, but excludes loopback, link-local, and public addresses. Startup prints the bound addresses. If any bind fails, the server fails to start rather than listening on only some addresses. Restart the server after an interface address changes.
+Replace the listen option with `--listen auto`, or repeat it, for example `--listen 192.168.56.1:59684 --listen 192.168.1.10:59684`. With no `--listen`, the server uses `auto`: it binds every private IPv4 address on an active interface, using port `59684`. Use `--listen auto:59700` for another port; explicit addresses can be combined with `auto`. Automatic selection may include VPN and virtual adapters, but excludes loopback, link-local, and public addresses. The server prints the actual listeners. All explicitly configured addresses must bind at startup. Failed automatic candidates are logged and retried while other listeners remain available.
 
 To run it in the background of the same Windows user session:
 
@@ -109,6 +109,18 @@ jc s stop
 ```
 
 `-d` means `--daemon`. The log is `jumpcode/server.log` under the user's config folder; `daemon.json` in the same folder stores runtime state. Logs record timestamps, PID, version, listen addresses, normal stops, failures, and accepted or failed open requests with failure reasons. Pairing tokens and project paths are excluded. Logs are appended and do not rotate automatically yet. `jc s status` and `jc s stop` manage the background server; use `Ctrl+C` for foreground mode. Start the server manually again after signing out or restarting Windows.
+
+### Network changes and automatic listeners
+
+Starting with v0.2.0, `auto` subscribes to Windows IPv4 address and interface change notifications in foreground, manual background, and task modes. The v0.1.1 release discovers addresses only at startup and still requires a restart after address changes.
+
+After switching Wi-Fi, starting or stopping a VPN, or connecting or disconnecting Ethernet, the server receives a system notification. It combines repeated events over about 500 milliseconds, discovers candidates again, adds new listeners, and removes listeners for addresses that disappeared. Unchanged listeners and existing connections stay in place. The process, certificate fingerprint, and pairing credentials stay the same. Configurations containing only explicit IPs continue to use fixed addresses.
+
+If no addresses are available at startup or the network is temporarily lost, the server stays running and waits for network notifications. Enumeration or bind failures trigger retries every three seconds. Identical consecutive errors are logged once; periodic checks stop after recovery. Logs record listener changes and failures. `jc s status` and `jc task status` show the actual listener list.
+
+With no listeners, status reports that the server is waiting for the network or a bind retry, and the corresponding stop command still works. `jc task start` waits up to 10 seconds for a listener; after a timeout the process stays running and resumes service when the network recovers. `jc s -d` can report that the process has started and is waiting for the network.
+
+This feature adjusts server listeners. Each Linux client still stores one fixed server address. Pair again if that address changes. A client using a stable virtual adapter address needs no changes when Wi-Fi or VPN addresses change.
 
 ### Legacy task cleanup
 
@@ -122,7 +134,7 @@ This removes the task and stops its server while preserving pairing credentials 
 
 ### Task management
 
-This feature is available in the current source version; the published v0.1.1 release does not include `jc task`. Run these commands as the signed-in Windows user. Put `jc.exe` in a permanent installation folder first: the task saves its absolute path. If you used `jc s -d`, run `jc s stop` first; stop a foreground server with `Ctrl+C`. Then install and start the task for the first time:
+`jc task` is available starting with v0.2.0. Follow the cleanup instructions above before migrating an old task. Run these commands as the signed-in Windows user. Put `jc.exe` in a permanent installation folder first: the task saves its absolute path. If you used `jc s -d`, run `jc s stop` first; stop a foreground server with `Ctrl+C`. Then install and start the task for the first time:
 
 ```powershell
 jc task install --listen auto
@@ -227,7 +239,7 @@ Revocation takes effect immediately because the server reads current pairing set
 
 | Symptom | Check |
 | --- | --- |
-| `--listen auto` fails to start | Check that Windows has an active interface with a private IPv4 address and read the bind error. Use an explicit `--listen IP:port` if needed. One failed bind prevents startup on all addresses. |
+| `auto` shows no listeners or some addresses are unavailable | Check for an active interface with a private IPv4 address and read the bind errors in the log. The server waits for notifications when no addresses exist and retries failed binds. Explicit addresses must be available at startup. Failure to subscribe to network notifications causes startup to fail. |
 | `task start` says the task is missing, or `task install` says it exists | Check installation with `jc task status`. Run `install` if missing. To change an existing task's configuration, run `uninstall` first. Use the legacy cleanup instructions for old tasks. |
 | Task startup times out or the server exits | Check scheduler state, last result, and the log using `jc task status`. Check whether a manual background or foreground server owns the port. A timed-out task may still be starting or retrying. |
 | A terminal stays open after task startup, and closing it stops the server | Check the task action and `jc --version`. Confirm the task uses the current version and old tasks were removed as described above. Current task mode detaches from the console and logs "已脱离控制台". A brief startup flash is still possible. |

@@ -22,17 +22,17 @@ Linux sends the folder path and pairing credential to Windows over HTTPS. VS Cod
 
 ## Installation
 
-Download `v0.1.1` from [GitHub Releases](https://github.com/pi12138/jumpcode/releases/tag/v0.1.1). The release provides **Windows amd64** and **Linux amd64** binaries for Intel/AMD 64-bit systems. Go is not required. See the [release notes](docs/releases/v0.1.1.en.md) for known limitations.
+Download `v0.2.0` from [GitHub Releases](https://github.com/pi12138/jumpcode/releases/tag/v0.2.0). The release provides **Windows amd64** and **Linux amd64** binaries for Intel/AMD 64-bit systems. Go is not required. See the [release notes](docs/releases/v0.2.0.en.md) for known limitations.
 
 ### Windows
 
-Download the [Windows ZIP](https://github.com/pi12138/jumpcode/releases/download/v0.1.1/jumpcode_v0.1.1_windows_amd64.zip) and [SHA256SUMS](https://github.com/pi12138/jumpcode/releases/download/v0.1.1/SHA256SUMS) to your Downloads folder. Use `Get-FileHash -Algorithm SHA256` on the ZIP and compare the hash with its entry in the checksum file.
+Download the [Windows ZIP](https://github.com/pi12138/jumpcode/releases/download/v0.2.0/jumpcode_v0.2.0_windows_amd64.zip) and [SHA256SUMS](https://github.com/pi12138/jumpcode/releases/download/v0.2.0/SHA256SUMS) to your Downloads folder. Use `Get-FileHash -Algorithm SHA256` on the ZIP and compare the hash with its entry in the checksum file.
 
 Extract the complete release package to a stable folder and add that folder to your user `PATH` in PowerShell:
 
 ```powershell
 $jcDir = Join-Path $env:LOCALAPPDATA 'Programs\Jumpcode'
-Expand-Archive -Path "$HOME\Downloads\jumpcode_v0.1.1_windows_amd64.zip" -DestinationPath $jcDir
+Expand-Archive -Path "$HOME\Downloads\jumpcode_v0.2.0_windows_amd64.zip" -DestinationPath $jcDir
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 if (($userPath -split ';') -notcontains $jcDir) {
     [Environment]::SetEnvironmentVariable('Path', "$jcDir;$userPath", 'User')
@@ -48,7 +48,7 @@ New terminals will inherit the updated `PATH`. Windows also needs VS Code deskto
 Download, verify, and install into the current user's `~/.local/bin`:
 
 ```sh
-jc_version=v0.1.1
+jc_version=v0.2.0
 jc_archive="jumpcode_${jc_version}_linux_amd64.tar.gz"
 jc_download_dir="$(mktemp -d)"
 cd "$jc_download_dir"
@@ -96,7 +96,7 @@ Start the background server manually with `jc s -d`, check it with `jc s status`
 
 ### 3. Enable Windows sign-in startup if needed
 
-The current source version manages Windows sign-in startup through `jc task`. These commands are not included in the published v0.1.1 release. If you started the manual background server above, run `jc s stop` first, then install and start the task:
+Manage Windows sign-in startup through `jc task`. If you started the manual background server above, run `jc s stop` first, then install and start the task:
 
 ```powershell
 jc task install --listen auto
@@ -108,9 +108,11 @@ Installation only registers the task; `start` runs it immediately. Future sign-i
 
 Task Scheduler directly runs the same `jc.exe server`, which detaches from the console in its own process. Logs are at `%APPDATA%\jumpcode\server.log`. A window may still flash briefly during startup. See [Task management](docs/usage.en.md#task-management). If you installed an older task, follow [Legacy task cleanup](docs/usage.en.md#legacy-task-cleanup) first.
 
+`auto` mode subscribes to Windows network notifications. It adjusts listeners after Wi-Fi or VPN changes and stays running through temporary network loss. See [Network changes and automatic listeners](docs/usage.en.md#network-changes-and-automatic-listeners).
+
 ## Documentation
 
 - [Usage guide](docs/usage.en.md): initial setup, listen addresses, credentials, background operation, and troubleshooting.
 - [Architecture](docs/architecture.en.md): component responsibilities, connection directions, and pairing.
 - [Development guide](docs/development.en.md): source layout, builds, cross-compilation, and verification commands.
-- [v0.1.1 release notes](docs/releases/v0.1.1.en.md): features, artifacts, and known limitations.
+- [v0.2.0 release notes](docs/releases/v0.2.0.en.md): features, artifacts, and known limitations.

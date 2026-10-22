@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"path"
 	"runtime"
 	"strings"
@@ -31,11 +32,11 @@ func Run(dir string, specs []string, daemonChild bool) error {
 	return runServerWithLog(dir, specs, "", nil)
 }
 
-func runServerWithLog(dir string, specs []string, controlFile string, activityLog *log.Logger) error {
+func runServerWithLog(dir string, specs []string, controlFile string, activityLog *log.Logger) (runErr error) {
 	if runtime.GOOS != "windows" {
 		return errors.New(i18n.T("首版服务端仅支持 Windows", "The server currently supports Windows only"))
 	}
-	addresses, err := resolveListenAddresses(specs)
+	specs, err := normalizeListenSpecs(specs)
 	if err != nil {
 		return err
 	}
@@ -44,6 +45,36 @@ func runServerWithLog(dir string, specs []string, controlFile string, activityLo
 		return err
 	}
 	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		return err
+	}
+	opener := remote.Open
+	if activityLog != nil {
+		opener = logOpenRequests(activityLog, opener)
+	}
+	handler := newServerHandler(dir, opener)
+	server := &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		TLSConfig:         &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{cert}},
+		ErrorLog:          activityLog,
+	}
+	if hasAutoListen(specs) {
+		// 先订阅再枚举，避免遗漏启动期间的网络变化。
+		changes, stopWatching, err := watchNetworkChanges()
+		if err != nil {
+			return err
+		}
+		defer func() { runErr = errors.Join(runErr, stopWatching()) }()
+		logger := activityLog
+		if logger == nil {
+			logger = log.New(os.Stdout, "", log.LstdFlags)
+		}
+		logger.Printf("已订阅 Windows IPv4 地址及接口变化，证书 SHA-256 指纹: %s", fingerprint)
+		manager := autoListenerManager{server: server, specs: specs, changes: changes, logger: logger}
+		return manager.run(controlFile)
+	}
+	addresses, err := resolveListenAddresses(specs)
 	if err != nil {
 		return err
 	}
@@ -56,20 +87,9 @@ func runServerWithLog(dir string, specs []string, controlFile string, activityLo
 			listener.Close()
 		}
 	}()
-	opener := remote.Open
-	if activityLog != nil {
-		opener = logOpenRequests(activityLog, opener)
-	}
-	handler := newServerHandler(dir, opener)
-	server := &http.Server{
-		Handler:           handler,
-		ReadHeaderTimeout: 5 * time.Second,
-		TLSConfig:         &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{cert}},
-		ErrorLog:          activityLog,
-	}
 	var cleanup func()
 	if controlFile != "" {
-		cleanup, err = serveControl(controlFile, addresses, server)
+		_, cleanup, err = serveControl(controlFile, addresses, server)
 		if err != nil {
 			return err
 		}

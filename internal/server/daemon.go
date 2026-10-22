@@ -24,7 +24,6 @@ type daemonState struct {
 	Addresses []string `json:"addresses,omitempty"`
 	Control   string   `json:"control"`
 	Token     string   `json:"token"`
-	Mode      string   `json:"mode,omitempty"`
 }
 
 func statePath(dir string) string { return filepath.Join(dir, "daemon.json") }
@@ -53,12 +52,8 @@ func readDaemonState(dir string) (daemonState, error) {
 }
 
 func daemonRequest(state daemonState, method string) error {
-	return daemonRequestContext(context.Background(), state, method)
-}
-
-func daemonRequestContext(ctx context.Context, state daemonState, method string) error {
 	client := &http.Client{Timeout: time.Second}
-	req, err := http.NewRequestWithContext(ctx, method, "http://"+state.Control+"/control", nil)
+	req, err := http.NewRequest(method, "http://"+state.Control+"/control", nil)
 	if err != nil {
 		return err
 	}
@@ -114,10 +109,6 @@ func Stop(dir string) error {
 	return errors.New(i18n.T("停止请求已发送，但服务未在 5 秒内退出", "Stop requested, but the server did not exit within 5 seconds"))
 }
 
-func serveDaemonControl(dir, address string, mainServer *http.Server) (func(), error) {
-	return serveDaemonControlMode(dir, []string{address}, mainServer, "daemon")
-}
-
 func stateListenAddresses(state daemonState) []string {
 	if len(state.Addresses) > 0 {
 		return state.Addresses
@@ -125,7 +116,7 @@ func stateListenAddresses(state daemonState) []string {
 	return []string{state.Address}
 }
 
-func serveDaemonControlMode(dir string, addresses []string, mainServer *http.Server, mode string) (func(), error) {
+func serveDaemonControl(dir string, addresses []string, mainServer *http.Server) (func(), error) {
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
@@ -135,7 +126,7 @@ func serveDaemonControlMode(dir string, addresses []string, mainServer *http.Ser
 		listener.Close()
 		return nil, err
 	}
-	state := daemonState{PID: os.Getpid(), Address: addresses[0], Addresses: addresses, Control: listener.Addr().String(), Token: base64.RawURLEncoding.EncodeToString(secret), Mode: mode}
+	state := daemonState{PID: os.Getpid(), Address: addresses[0], Addresses: addresses, Control: listener.Addr().String(), Token: base64.RawURLEncoding.EncodeToString(secret)}
 	control := &http.Server{ReadHeaderTimeout: 3 * time.Second}
 	control.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer "+state.Token {

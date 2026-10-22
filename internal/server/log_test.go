@@ -18,30 +18,26 @@ import (
 )
 
 func TestBackgroundLogsLifecycleAndPreservesErrors(t *testing.T) {
-	for _, mode := range []string{"daemon", "task"} {
-		t.Run(mode, func(t *testing.T) {
-			dir := t.TempDir()
-			if err := withServerLog(dir, []string{"auto"}, mode, func(*log.Logger) error { return nil }); err != nil {
-				t.Fatal(err)
-			}
-			failure := errors.New("模拟监听失败")
-			if err := withServerLog(dir, []string{"auto"}, mode, func(*log.Logger) error { return failure }); !errors.Is(err, failure) {
-				t.Fatalf("服务错误应返回调用方: %v", err)
-			}
-			data, err := os.ReadFile(filepath.Join(dir, "server.log"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			content := string(data)
-			if strings.Count(content, "服务启动") != 2 || strings.Count(content, "服务已正常停止") != 1 || strings.Count(content, "服务退出") != 1 || !strings.Contains(content, failure.Error()) || !strings.Contains(content, "版本:") {
-				t.Fatalf("追加日志未完整记录启动、正常停止和失败: %s", content)
-			}
-			for _, line := range strings.Split(strings.TrimSpace(content), "\n") {
-				if !regexp.MustCompile(`^\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} `).MatchString(line) || !strings.Contains(line, "模式: "+mode) {
-					t.Fatalf("生命周期日志缺少时间或模式: %s", line)
-				}
-			}
-		})
+	dir := t.TempDir()
+	if err := withServerLog(dir, []string{"auto"}, func(*log.Logger) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	failure := errors.New("模拟监听失败")
+	if err := withServerLog(dir, []string{"auto"}, func(*log.Logger) error { return failure }); !errors.Is(err, failure) {
+		t.Fatalf("服务错误应返回调用方: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "server.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if strings.Count(content, "服务启动") != 2 || strings.Count(content, "服务已正常停止") != 1 || strings.Count(content, "服务退出") != 1 || !strings.Contains(content, failure.Error()) || !strings.Contains(content, "版本:") {
+		t.Fatalf("追加日志未完整记录启动、正常停止和失败: %s", content)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(content), "\n") {
+		if !regexp.MustCompile(`^\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} `).MatchString(line) {
+			t.Fatalf("生命周期日志缺少时间: %s", line)
+		}
 	}
 }
 
@@ -52,7 +48,7 @@ func TestBackgroundRequestLogsHideCredentialsAndPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	const project = "/home/me/私有项目 name"
-	err = withServerLog(dir, []string{"auto"}, "daemon", func(logger *log.Logger) error {
+	err = withServerLog(dir, []string{"auto"}, func(logger *log.Logger) error {
 		calls := 0
 		opener := logOpenRequests(logger, func(target remote.Target) error {
 			calls++

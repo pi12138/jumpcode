@@ -26,12 +26,12 @@ func runServer(dir string, specs []string) error {
 
 func Run(dir string, specs []string, daemonChild bool) error {
 	if daemonChild {
-		return runLoggedServer(dir, specs, "daemon")
+		return runLoggedServer(dir, specs)
 	}
-	return runServerModeWithLog(dir, specs, "", nil)
+	return runServerWithLog(dir, specs, false, nil)
 }
 
-func runServerModeWithLog(dir string, specs []string, mode string, activityLog *log.Logger) error {
+func runServerWithLog(dir string, specs []string, daemonChild bool, activityLog *log.Logger) error {
 	if runtime.GOOS != "windows" {
 		return errors.New(i18n.T("首版服务端仅支持 Windows", "The server currently supports Windows only"))
 	}
@@ -68,8 +68,8 @@ func runServerModeWithLog(dir string, specs []string, mode string, activityLog *
 		ErrorLog:          activityLog,
 	}
 	var cleanup func()
-	if mode != "" {
-		cleanup, err = serveDaemonControlMode(dir, addresses, server, mode)
+	if daemonChild {
+		cleanup, err = serveDaemonControl(dir, addresses, server)
 		if err != nil {
 			return err
 		}

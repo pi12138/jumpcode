@@ -13,14 +13,14 @@ import (
 	"jumpcode/internal/version"
 )
 
-func runLoggedServer(dir string, specs []string, mode string) error {
-	return withServerLog(dir, specs, mode, func(logger *log.Logger) error {
-		return runServerModeWithLog(dir, specs, mode, logger)
+func runLoggedServer(dir string, specs []string) error {
+	return withServerLog(dir, specs, func(logger *log.Logger) error {
+		return runServerWithLog(dir, specs, true, logger)
 	})
 }
 
-// withServerLog 为两种后台模式统一记录生命周期，并保留服务原始错误。
-func withServerLog(dir string, specs []string, mode string, run func(*log.Logger) error) error {
+// withServerLog 记录后台服务的生命周期，并保留服务原始错误。
+func withServerLog(dir string, specs []string, run func(*log.Logger) error) error {
 	if err := config.EnsureDir(dir); err != nil {
 		return err
 	}
@@ -30,12 +30,12 @@ func withServerLog(dir string, specs []string, mode string, run func(*log.Logger
 	}
 	defer f.Close()
 	logger := log.New(f, "", log.LstdFlags)
-	logger.Printf("服务启动，模式: %s，PID: %d，版本: %s，监听配置: %s", mode, os.Getpid(), version.String(), strings.Join(specs, ", "))
+	logger.Printf("服务启动，PID: %d，版本: %s，监听配置: %s", os.Getpid(), version.String(), strings.Join(specs, ", "))
 	if err := run(logger); err != nil {
-		logger.Printf("服务退出，模式: %s，错误: %v", mode, err)
+		logger.Printf("服务退出，错误: %v", err)
 		return err
 	}
-	logger.Printf("服务已正常停止，模式: %s", mode)
+	logger.Print("服务已正常停止")
 	return nil
 }
 

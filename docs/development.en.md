@@ -34,12 +34,12 @@ scripts/release/     Two-platform archives, version manifest, and SHA-256 checks
 cmd/
   root.go            Root command, language initialization, and error handling
   client.go          Client open command
-  server*.go         Server, background management, and sign-in subcommands
+  server*.go         Server and background management subcommands
   pair*.go           Pairing management subcommands
   token.go           Pairing token input from the terminal
 internal/
   client/            Linux client pairing verification and open requests
-  server/            HTTPS server, multiple listeners, background process, and sign-in task
+  server/            HTTPS server, multiple listeners, and background process
   pairing/           Pairing credentials, SSH host binding, and revocation
   config/            User settings, certificate, and private key persistence
   protocol/          Shared requests, address validation, token hashes, and TLS fingerprint checks
@@ -62,7 +62,7 @@ go vet -buildvcs=false ./...
 
 `jc --version` (or `jc -v`) prints the version, commit, UTC build time, and target platform. A regular `go build` reports `dev` with an `unknown` commit and build time. The release tool injects these values through `-ldflags`; background logs include them too.
 
-The release tool uses the Go standard library and Git. It produces a Windows amd64 ZIP, a Linux amd64 tar.gz, `release.json`, and `SHA256SUMS`. Each archive includes the executable, bilingual guides, and release notes for that version. Linux executable permissions are preserved. Local configuration, credentials, and the ignored validation draft are excluded.
+The release tool uses the Go standard library and Git. It produces a Windows amd64 ZIP, a Linux amd64 tar.gz, `release.json`, and `SHA256SUMS`. The Windows ZIP contains `jc.exe`; the Linux archive contains `jc`. Both include bilingual guides and release notes for that version. Linux executable permissions are preserved. Local configuration, credentials, and the ignored validation draft are excluded.
 
 Create a test snapshot during development:
 
@@ -86,7 +86,7 @@ cd dist/v0.1.1
 sha256sum -c SHA256SUMS
 ```
 
-The packaging tool only generates local artifacts. Before a stable release, use the candidate binaries to verify project opens, background start/stop, sign-in tasks, and failure recovery in a Windows desktop session. Beta release notes must state the actual acceptance scope.
+The packaging tool only generates local artifacts. Before a stable release, use the candidate binaries to verify project opens and background start/stop in a Windows desktop session. Beta release notes must state the actual acceptance scope.
 
 ## GitHub release workflow
 

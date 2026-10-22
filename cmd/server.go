@@ -12,7 +12,7 @@ import (
 
 func newServerCommand() *cobra.Command {
 	var listen []string
-	var daemon, child, taskRun bool
+	var daemon, child bool
 	cmd := &cobra.Command{
 		Use:     "server",
 		Aliases: []string{"s"},
@@ -23,11 +23,8 @@ func newServerCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if (daemon && child) || (daemon && taskRun) || (child && taskRun) {
+			if daemon && child {
 				return errors.New(i18n.T("后台参数不能组合使用", "Daemon options cannot be combined"))
-			}
-			if taskRun {
-				return server.RunAtLogin(dir, listen)
 			}
 			if daemon {
 				return server.StartBackground(dir, listen)
@@ -39,8 +36,6 @@ func newServerCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&daemon, "daemon", "d", false, i18n.T("在当前 Windows 用户会话中后台运行", "Run in the current Windows user session in the background"))
 	cmd.Flags().BoolVar(&child, "daemon-child", false, "internal")
 	cmd.Flags().MarkHidden("daemon-child")
-	cmd.Flags().BoolVar(&taskRun, "task-run", false, "internal")
-	cmd.Flags().MarkHidden("task-run")
-	cmd.AddCommand(newServerStartCommand(), newServerStatusCommand(), newServerStopCommand(), newServerStartupCommand())
+	cmd.AddCommand(newServerStatusCommand(), newServerStopCommand())
 	return cmd
 }

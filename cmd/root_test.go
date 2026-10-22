@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -31,13 +33,31 @@ func TestShortCommands(t *testing.T) {
 		{[]string{"pair", "status"}, "status"},
 		{[]string{"c"}, "client"},
 		{[]string{"s", "st"}, "status"},
-		{[]string{"s", "start"}, "start"},
 		{[]string{"s", "stop"}, "stop"},
-		{[]string{"s", "startup", "install"}, "install"},
 	} {
 		cmd, remaining, err := root.Find(tc.args)
 		if err != nil || cmd.Name() != tc.name || len(remaining) != 0 {
 			t.Errorf("别名 %v: cmd=%v err=%v", tc.args, cmd, err)
+		}
+	}
+}
+
+func TestServerRejectsRemovedStartupCommands(t *testing.T) {
+	for _, args := range [][]string{
+		{"server", "startup", "install"},
+		{"s", "startup", "status"},
+		{"s", "startup", "uninstall"},
+		{"server", "start"},
+		{"s", "start"},
+		{"server", "--task-run"},
+	} {
+		root := newRootCommand()
+		root.SetArgs(args)
+		root.SetOut(new(bytes.Buffer))
+		root.SetErr(new(bytes.Buffer))
+		err := root.Execute()
+		if err == nil || (!strings.Contains(err.Error(), "unknown command") && !strings.Contains(err.Error(), "unknown flag")) {
+			t.Errorf("已移除的登录启动入口应在参数解析时拒绝: args=%v err=%v", args, err)
 		}
 	}
 }

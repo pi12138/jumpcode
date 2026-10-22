@@ -28,7 +28,7 @@ Download `v0.1.1` from [GitHub Releases](https://github.com/pi12138/jumpcode/rel
 
 Download the [Windows ZIP](https://github.com/pi12138/jumpcode/releases/download/v0.1.1/jumpcode_v0.1.1_windows_amd64.zip) and [SHA256SUMS](https://github.com/pi12138/jumpcode/releases/download/v0.1.1/SHA256SUMS) to your Downloads folder. Use `Get-FileHash -Algorithm SHA256` on the ZIP and compare the hash with its entry in the checksum file.
 
-Extract it to a stable folder and add that folder to your user `PATH` in PowerShell:
+Extract the complete release package to a stable folder and add that folder to your user `PATH` in PowerShell:
 
 ```powershell
 $jcDir = Join-Path $env:LOCALAPPDATA 'Programs\Jumpcode'
@@ -41,7 +41,7 @@ $env:Path = "$jcDir;$env:Path"
 jc --version
 ```
 
-New terminals will inherit the updated `PATH`. Windows also needs VS Code desktop, Remote-SSH, and an OpenSSH client. Keep `jc.exe` at its installed path after registering a sign-in task. Before upgrading, run `jc server stop`, then replace the executable at the same path.
+New terminals will inherit the updated `PATH`. Windows also needs VS Code desktop, Remote-SSH, and an OpenSSH client. Before upgrading, stop the background server with `jc server stop`, then replace `jc.exe`.
 
 ### Linux
 
@@ -92,11 +92,13 @@ jc client .
 
 VS Code on Windows should attempt to open the folder through Remote-SSH. Check its window for the final connection result.
 
-For automatic startup at sign-in, install the task with `jc s startup install --listen auto`. `jc s stop` stops the current server while keeping the task. Run `jc s start` to start an installed task immediately. See [Server operation and management](docs/usage.en.md#server-operation-and-management) for the full workflow.
+Start the background server manually with `jc s -d`, check it with `jc s status`, and stop it with `jc s stop`. See [Server operation and management](docs/usage.en.md#server-operation-and-management) for details.
+
+The current source version removes automatic startup and the related task commands. The published v0.1.1 release still includes them. If you installed a task, follow [Legacy task cleanup](docs/usage.en.md#legacy-task-cleanup) before upgrading.
 
 ## Documentation
 
-- [Usage guide](docs/usage.en.md): initial setup, listen addresses, credentials, background operation, sign-in tasks, and troubleshooting.
+- [Usage guide](docs/usage.en.md): initial setup, listen addresses, credentials, background operation, and troubleshooting.
 - [Architecture](docs/architecture.en.md): component responsibilities, connection directions, and pairing.
 - [Development guide](docs/development.en.md): source layout, builds, cross-compilation, and verification commands.
 - [v0.1.1 release notes](docs/releases/v0.1.1.en.md): features, artifacts, and known limitations.

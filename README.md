@@ -28,7 +28,7 @@ Linux 通过 HTTPS 向 Windows 发送目录和配对凭据；Windows 上的 VS C
 
 下载 [Windows ZIP](https://github.com/pi12138/jumpcode/releases/download/v0.1.1/jumpcode_v0.1.1_windows_amd64.zip) 和 [SHA256SUMS](https://github.com/pi12138/jumpcode/releases/download/v0.1.1/SHA256SUMS) 到“下载”目录。可用 `Get-FileHash -Algorithm SHA256` 计算 ZIP 的哈希，与校验文件中的对应项核对。
 
-在 PowerShell 中解压到固定目录，并将它加入当前用户的 `PATH`：
+在 PowerShell 中将完整发布包解压到固定目录，并将该目录加入当前用户的 `PATH`：
 
 ```powershell
 $jcDir = Join-Path $env:LOCALAPPDATA 'Programs\Jumpcode'
@@ -41,7 +41,7 @@ $env:Path = "$jcDir;$env:Path"
 jc --version
 ```
 
-后续新开的终端会使用更新后的 `PATH`。Windows 还需要安装 VS Code 桌面版、Remote-SSH 扩展和 OpenSSH 客户端。安装登录启动任务后，请保留 `jc.exe` 的路径；升级前先运行 `jc server stop`，再替换原路径的程序。
+后续新开的终端会使用更新后的 `PATH`。Windows 还需要安装 VS Code 桌面版、Remote-SSH 扩展和 OpenSSH 客户端。升级前先用 `jc server stop` 停止后台服务，再替换 `jc.exe`。
 
 ### Linux
 
@@ -92,11 +92,13 @@ jc client .
 
 Windows 上的 VS Code 会尝试通过 Remote-SSH 打开该目录，最终连接结果以 VS Code 窗口为准。
 
-需要登录后自动运行时，使用 `jc s startup install --listen auto` 安装任务，`jc s stop` 停止当前服务并保留任务。`jc s start` 可立即运行已安装的任务。完整操作见[服务端运行与管理](docs/usage.md#服务端运行与管理)。
+使用 `jc s -d` 手动启动后台服务，`jc s status` 查看状态，`jc s stop` 停止服务。完整操作见[服务端运行与管理](docs/usage.md#服务端运行与管理)。
+
+当前源码版已移除自动启动功能及相关计划任务命令；已发布的 v0.1.1 仍包含该功能。曾安装过任务的用户，请按[旧版任务清理说明](docs/usage.md#旧版任务清理)在升级前卸载任务。
 
 ## 文档
 
-- [使用指南](docs/usage.md)：首次配置、监听地址、凭据管理、后台服务、自启动和故障排查。
+- [使用指南](docs/usage.md)：首次配置、监听地址、凭据管理、后台服务和故障排查。
 - [架构说明](docs/architecture.md)：组件职责、连接方向和配对机制。
 - [开发指南](docs/development.md)：源码布局、构建、交叉编译和验证命令。
 - [v0.1.1 发布说明](docs/releases/v0.1.1.md)：版本功能、发布产物和已知限制。

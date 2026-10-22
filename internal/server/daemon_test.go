@@ -29,7 +29,7 @@ func TestDaemonControlRequiresTokenAndStopsServer(t *testing.T) {
 	mainServer := &http.Server{}
 	done := make(chan error, 1)
 	go func() { done <- mainServer.Serve(listener) }()
-	cleanup, err := serveDaemonControl(dir, listener.Addr().String(), mainServer)
+	cleanup, err := serveDaemonControl(dir, []string{listener.Addr().String()}, mainServer)
 	if err != nil {
 		t.Fatal(err)
 	}

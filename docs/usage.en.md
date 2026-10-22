@@ -64,15 +64,6 @@ These examples use `192.168.56.1` for a Windows address reachable from the VM an
 
    VS Code on Windows should attempt to connect to `devvm`; check the VS Code window for the final connection result. Use the same command later under the same Linux user. If `$HOME/.local/bin` is on `PATH`, use `jc c .`. The client remembers one Windows server address. Running `jc .` directly on Linux does not request a Windows launch.
 
-After the flow works, you can register a Windows sign-in task:
-
-```powershell
-.\jc.exe s startup install --listen auto
-.\jc.exe s startup status
-```
-
-Installing the task does not start another server immediately; it runs at the next sign-in by that Windows user. To switch to task management immediately, stop the standalone background server from the earlier steps with `.\jc.exe s stop`, then run `.\jc.exe s start`. Put `jc.exe` at a stable local path first. If a task is already installed, run `.\jc.exe s startup uninstall` before reinstalling; uninstalling also stops a server started by that task.
-
 ## Open from Windows
 
 ```powershell
@@ -107,32 +98,24 @@ jc s status
 jc s stop
 ```
 
-`-d` means `--daemon`. The log is `jumpcode/server.log` under the user's config folder; `daemon.json` in the same folder stores runtime state. Background and sign-in modes share logging for timestamps, mode (`daemon` or `task`), PID, version, listen addresses, normal stops, failures, and accepted or failed open requests with failure reasons. Pairing tokens and project paths are excluded. Logs are appended and do not rotate automatically yet. This mode does not start automatically at the next sign-in. `jc s status` and `jc s stop` manage both background and sign-in modes; use `Ctrl+C` for foreground mode.
-
-To start the server whenever the current Windows user signs in:
-
-```powershell
-jc s startup install --listen auto
-jc s start
-jc s status
-jc s startup status
-jc s stop
-```
-
-Installation only registers the task for the next sign-in. `jc s start` runs the installed task immediately, using the executable path, language, and listen settings saved during installation. It accepts neither `--listen` nor `-d` and does not install a missing task. Starting an already running task reports that it is running. If a standalone server started with `-d` is running, stop it with `jc s stop` first. The start command waits up to 10 seconds for the server control endpoint to become ready. If the scheduler accepts the request but the server is not ready, it returns an error with the log path. The task may still start or retry later; check `jc s status` and `jc s startup status`.
-
-`jc s start` is available starting with v0.1.1. With the older v0.1.0 release, run the task manually in Windows Task Scheduler.
-
-Use explicit addresses and repeat `--listen` when installing if needed; omitting it stores `auto`, so addresses are discovered whenever the task starts. A hidden launcher waits for the server and passes its exit code to the task, which retries failures up to three times at one-minute intervals and has no execution time limit. The task runs as the signed-in user, so keep `jc.exe` at the path used during installation. `server.log` records manual start requests, readiness, starts, stops, failures, and accepted open requests without recording pairing tokens or project paths. `jc s stop` stops the current server gracefully through its control endpoint and leaves the task installed for the next sign-in. `jc s startup uninstall` removes the task and stops a server started by that task.
+`-d` means `--daemon`. The log is `jumpcode/server.log` under the user's config folder; `daemon.json` in the same folder stores runtime state. Logs record timestamps, PID, version, listen addresses, normal stops, failures, and accepted or failed open requests with failure reasons. Pairing tokens and project paths are excluded. Logs are appended and do not rotate automatically yet. `jc s status` and `jc s stop` manage the background server; use `Ctrl+C` for foreground mode. Start the server manually again after signing out or restarting Windows.
 
 | Action | Command |
 | --- | --- |
-| Install automatic startup at sign-in | `jc s startup install --listen auto` |
-| Run the installed task now | `jc s start` |
-| Check the current server | `jc s status` |
-| Stop the current server, keeping automatic startup | `jc s stop` |
-| Check task installation and server status | `jc s startup status` |
-| Remove the task and stop its server | `jc s startup uninstall` |
+| Run in the foreground | `jc s --listen auto` |
+| Run in the background | `jc s --listen auto -d` |
+| Check the background server | `jc s status` |
+| Stop the background server | `jc s stop` |
+
+### Legacy task cleanup
+
+The current source version removes `jc s startup`, `jc s start`, and Task Scheduler support. If an older version installed a sign-in task, run this command with **the old jc version** before replacing the executable:
+
+```powershell
+jc s startup uninstall
+```
+
+This removes the task and stops its server while preserving pairing credentials and certificates. If you already replaced the executable, delete the current user's `Jumpcode Server <user SID>` task in Windows Task Scheduler and run `jc s stop` to stop a background server that is still running. Upgrading alone does not remove existing Windows tasks. Use `jc s -d` to start the server manually afterward.
 
 ## Pairing and credentials
 
@@ -174,9 +157,8 @@ Revocation takes effect immediately because the server reads current pairing set
 | Pairing from Linux reports a connection failure | Run `jc s status` on Windows and choose a bound address reachable from the VM. Check the Windows firewall for that port. Other addresses selected by `auto` may be unreachable from this VM. |
 | Fingerprint mismatch or HTTP 401 | Check the fingerprint and token printed during Windows pairing. If the token was lost, revoke with `jc pair revoke --name devvm`, then pair again on Windows and Linux. |
 | The request succeeds but VS Code does not connect | Retry `ssh devvm` on Windows and check Remote-SSH, the registered `vscode://` handler, and the error in the VS Code window. A successful request only confirms that Windows accepted the launch. |
-| The server does not start at sign-in | Run `jc s startup status`. The task only runs after that Windows user signs in. Check that `jc.exe` remains at its installed path and inspect `server.log`. |
 
-Read the background or sign-in log from Windows PowerShell:
+Read the background log from Windows PowerShell:
 
 ```powershell
 Get-Content (Join-Path $env:APPDATA 'jumpcode\server.log') -Tail 50

@@ -16,10 +16,9 @@ There are two distinct connections. Linux-to-Windows HTTPS carries control infor
 
 | Component | Location and responsibility |
 | --- | --- |
-| `jc server` | Runs in the signed-in Windows user's session, listens on HTTPS, verifies client credentials, and asks Windows to open VS Code through its registered `vscode://` handler. It can run in the foreground, background, or after sign-in. |
+| `jc server` | Runs in the signed-in Windows user's session, listens on HTTPS, verifies client credentials, and asks Windows to open VS Code through its registered `vscode://` handler. Start it manually in the foreground or background. |
 | `jc client` | Runs briefly on the Linux VM, resolves the folder to an absolute path, and requests an open from the paired Windows server. It does not stay running. |
 | VS Code + Remote-SSH | Runs on the Windows desktop and establishes the actual SSH connection to Linux. Jumpcode can only confirm that the launch request was accepted; check the VS Code window for the final result. |
-| Windows Task Scheduler | Optional. Once a sign-in task is installed, it starts `jc server` the next time the current user signs in, or immediately with `jc s start`. `jc s stop` stops the current server gracefully while keeping automatic startup. It is not a Windows Service running before sign-in. |
 
 ## Pairing and identity verification
 

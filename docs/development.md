@@ -35,12 +35,12 @@ scripts/release/     双平台发布包、版本清单和 SHA-256 校验文件�
 cmd/
   root.go            根命令、语言初始化与统一错误处理
   client.go          客户端打开命令
-  server*.go         服务、后台管理和登录启动子命令
+  server*.go         服务和后台管理子命令
   pair*.go           配对管理子命令
   token.go           配对密钥的终端输入
 internal/
   client/            Linux 客户端配对验证与打开请求
-  server/            HTTPS 服务、多 IP 监听、后台进程与登录启动任务
+  server/            HTTPS 服务、多 IP 监听与后台进程
   pairing/           配对凭据的创建、SSH 主机绑定与撤销
   config/            用户配置、证书与私钥的持久化
   protocol/          共享请求结构、地址校验、密钥哈希与 TLS 指纹校验
@@ -63,7 +63,7 @@ go vet -buildvcs=false ./...
 
 `jc --version`（或 `jc -v`）显示版本号、提交号、UTC 构建时间和目标平台。普通 `go build` 的版本为 `dev`，提交号和构建时间为 `unknown`；发布工具会通过 `-ldflags` 注入实际信息，后台日志也记录这些信息。
 
-发布工具仅依赖 Go 标准库和 Git，生成 Windows amd64 ZIP、Linux amd64 tar.gz、`release.json` 和 `SHA256SUMS`。压缩包包含可执行文件、双语指南和对应版本的发布说明；Linux 可执行文件保留执行权限。本地配置、密钥和被忽略的验证草稿不会打包。
+发布工具仅依赖 Go 标准库和 Git，生成 Windows amd64 ZIP、Linux amd64 tar.gz、`release.json` 和 `SHA256SUMS`。Windows ZIP 的可执行文件为 `jc.exe`，Linux 包的可执行文件为 `jc`。两种压缩包都包含双语指南和对应版本的发布说明；Linux 可执行文件保留执行权限。本地配置、密钥和被忽略的验证草稿不会打包。
 
 开发过程中可生成测试快照：
 
@@ -87,7 +87,7 @@ cd dist/v0.1.1
 sha256sum -c SHA256SUMS
 ```
 
-打包工具只生成本地产物。稳定版发布前需使用候选产物完成 Windows 桌面会话中的打开、后台启停、登录启动和失败恢复验收；测试版需在发布说明中明确实际验收范围。
+打包工具只生成本地产物。稳定版发布前需使用候选产物完成 Windows 桌面会话中的打开和后台启停验收；测试版需在发布说明中明确实际验收范围。
 
 ## GitHub 发布流程
 

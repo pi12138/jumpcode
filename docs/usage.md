@@ -64,15 +64,6 @@
 
    Windows 上的 VS Code 应尝试连接 `devvm`，最终连接结果以 VS Code 窗口为准。此后在同一 Linux 用户下继续使用该命令即可；如果 `$HOME/.local/bin` 已在 `PATH`，可简写为 `jc c .`。客户端会记住本次配对使用的一个 Windows 地址。Linux 上直接执行 `jc .` 不会请求 Windows 打开目录。
 
-确认流程可用后，可在 Windows 上注册登录启动任务：
-
-```powershell
-.\jc.exe s startup install --listen auto
-.\jc.exe s startup status
-```
-
-安装任务不会立即启动新服务；下次以该 Windows 用户登录时才会启动。如需立即切换为计划任务运行，先用 `.\jc.exe s stop` 停止前面启动的普通后台服务，再执行 `.\jc.exe s start`。请先把 `jc.exe` 放在不会移动的本地路径。如果已有同名任务，需要先执行 `.\jc.exe s startup uninstall` 再重新安装；卸载也会停止由任务启动的服务。
-
 ## 从 Windows 打开项目
 
 ```powershell
@@ -107,32 +98,24 @@ jc s status
 jc s stop
 ```
 
-后台日志位于用户配置目录的 `jumpcode/server.log`，运行状态保存在同目录的 `daemon.json`。后台模式和登录启动模式共用日志，记录时间、模式（`daemon` 或 `task`）、PID、版本、监听地址、正常停止、异常退出，以及打开请求的成功或失败原因；配对密钥和项目路径不写入日志。日志追加写入，当前没有自动轮转。`-d` 不会在下次登录后自动启动。`jc s status` 和 `jc s stop` 管理后台及登录启动模式，前台模式用 `Ctrl+C` 停止。
-
-要在当前 Windows 用户登录后自动运行，执行：
-
-```powershell
-jc s startup install --listen auto
-jc s start
-jc s status
-jc s startup status
-jc s stop
-```
-
-安装命令只注册计划任务，下次登录时启动。`jc s start` 立即运行已安装的任务，使用安装时保存的程序路径、语言和监听配置，不接受 `--listen` 或 `-d`；它不会自动安装任务。任务已运行时重复执行会提示已运行；如果已有通过 `-d` 启动的普通后台服务，需先执行 `jc s stop`。启动命令会等待最多 10 秒确认服务控制接口就绪；调度器接受请求但服务未就绪时会返回失败并提示日志路径，任务后续仍可能启动或重试，可用 `jc s status` 和 `jc s startup status` 查看状态。
-
-`jc s start` 从 v0.1.1 开始提供；旧版 v0.1.0 需要在 Windows 任务计划程序中手动运行任务。
-
-安装时可改用明确地址并重复指定 `--listen`；省略时按 `auto` 保存，每次任务启动时重新枚举地址。任务中的隐藏启动器会等待服务进程并传递退出码，失败后最多间隔 1 分钟重试 3 次，不会在预设时长后停止。任务以当前登录用户身份运行，`jc.exe` 必须留在安装时的路径。`server.log` 记录手动启动请求、服务就绪、启动与停止、失败及已接受的打开请求，不记录配对密钥或项目路径。`jc s stop` 通过控制接口正常停止当前服务，任务仍会在下次登录时启动；`jc s startup uninstall` 会移除任务并停止由任务启动的服务。
+后台日志位于用户配置目录的 `jumpcode/server.log`，运行状态保存在同目录的 `daemon.json`。日志记录时间、PID、版本、监听地址、正常停止、异常退出，以及打开请求的成功或失败原因；配对密钥和项目路径不写入日志。日志追加写入，当前没有自动轮转。`jc s status` 和 `jc s stop` 管理后台服务，前台模式用 `Ctrl+C` 停止。退出登录或重启后，需要再次手动启动服务。
 
 | 操作 | 命令 |
 | --- | --- |
-| 安装登录自动启动 | `jc s startup install --listen auto` |
-| 立即运行已安装的任务 | `jc s start` |
-| 查看当前服务 | `jc s status` |
-| 停止当前服务，保留登录自动启动 | `jc s stop` |
-| 查看登录任务是否安装、是否运行 | `jc s startup status` |
-| 移除登录任务，并停止任务启动的服务 | `jc s startup uninstall` |
+| 前台运行 | `jc s --listen auto` |
+| 后台运行 | `jc s --listen auto -d` |
+| 查看后台服务 | `jc s status` |
+| 停止后台服务 | `jc s stop` |
+
+### 旧版任务清理
+
+当前源码版已移除 `jc s startup`、`jc s start` 和计划任务支持。如果旧版曾安装过登录启动任务，请在替换程序前使用**旧版 jc** 执行：
+
+```powershell
+jc s startup uninstall
+```
+
+该命令会移除任务并停止任务启动的服务，保留配对凭据和证书。如果已经替换程序，可在 Windows 任务计划程序中删除当前用户的 `Jumpcode Server <用户 SID>` 任务，并执行 `jc s stop` 停止仍在运行的后台服务。升级本身不会删除 Windows 中已有的任务。之后使用 `jc s -d` 手动启动。
 
 ## 配对与凭据
 
@@ -174,9 +157,8 @@ server 在处理请求时读取最新配对配置，因此撤销立即生效。W
 | Linux 配对时报“连接失败” | 在 Windows 执行 `jc s status`，确认选择的是实际监听且虚拟机可达的地址；检查 Windows 防火墙是否允许虚拟机访问该端口。`auto` 选出的其他网卡地址不一定对这台虚拟机可达。 |
 | 指纹不匹配或返回 401 | 核对 Windows 配对输出中的证书指纹和密钥，不要把两个值混用。如果密钥丢失，在 Windows 用 `jc pair revoke --name devvm` 撤销，再创建新配对并在 Linux 重新配对。 |
 | Linux 显示请求成功，但 VS Code 未连上项目 | 在 Windows 再次运行 `ssh devvm`，检查 Remote-SSH 扩展、`vscode://` 协议注册和 VS Code 窗口中的报错。请求成功只表示 Windows 接受了打开请求。 |
-| 登录后没有自动运行 | 执行 `jc s startup status`，确认任务已安装；任务只在该 Windows 用户登录后启动。检查 `jc.exe` 是否仍在安装时的路径，以及 `server.log` 中的失败记录。 |
 
-后台或登录启动模式的日志可在 Windows PowerShell 中查看：
+后台日志可在 Windows PowerShell 中查看：
 
 ```powershell
 Get-Content (Join-Path $env:APPDATA 'jumpcode\server.log') -Tail 50

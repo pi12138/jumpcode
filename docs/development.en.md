@@ -61,6 +61,8 @@ go vet -buildvcs=false ./...
 
 `internal/server/task*.go` implements lifecycle management, XML definitions, Windows COM calls, and console detachment using the existing `golang.org/x/sys/windows` dependency. Linux tests use a fake scheduler to verify readiness waiting, graceful stops, error propagation, and state isolation. Windows tests additionally validate Unicode XML through the native scheduler without registering a task. Console tests create a real console in an isolated child process and verify that detachment preserves the PID, the server remains available, and standard output and panic traces reach the log, without changing the main test process's console or streams. Cross-compilation cannot verify Windows desktop window behavior; test installation, start, stop, sign-in triggering, and any startup flash with the actual binary.
 
+A handle lifetime regression test uses the same isolated child process to simulate release of old standard-stream handles and reuse their values for event objects. After forced GC, the reused handles and server responses must remain valid. Scheduled servers retain their original standard-stream objects so finalizers cannot close handles reused by Windows after console detachment.
+
 `network_windows.go` uses `NotifyUnicastIpAddressChange`, `NotifyIpInterfaceChange`, and `CancelMibChangeNotify2` from the existing dependency. `listen_dynamic.go` serializes notifications, listener changes, and failure retries. Tests use controlled address snapshots, event channels, and real loopback HTTPS to verify network switching, connection preservation, recovery after losing all addresses, bind retries, empty listener state, and stopping. They do not change the test machine's adapters or VPN configuration. Verify actual Windows notifications by switching Wi-Fi and starting or stopping a VPN on a desktop, observing the PID, `jc task status` / `jc s status`, and listener changes in `server.log`.
 
 ## Version and release packaging
@@ -72,22 +74,22 @@ The release tool uses the Go standard library and Git. It produces a Windows amd
 Create a test snapshot during development:
 
 ```sh
-go run ./scripts/release --version v0.2.0 --snapshot
+go run ./scripts/release --version v0.2.1 --snapshot
 ```
 
-Output goes to `dist/v0.2.0-snapshot/`. Stable version numbers gain `-snapshot`; versions that already have a prerelease suffix gain `.snapshot`. Uncommitted changes add `-dirty` to the commit. The manifest records both `snapshot` and `dirty`. Existing output directories are never overwritten, and a failed build does not leave a completed release directory.
+Output goes to `dist/v0.2.1-snapshot/`. Stable version numbers gain `-snapshot`; versions that already have a prerelease suffix gain `.snapshot`. Uncommitted changes add `-dirty` to the commit. The manifest records both `snapshot` and `dirty`. Existing output directories are never overwritten, and a failed build does not leave a completed release directory.
 
 For a release, prepare `docs/releases/<version>.md` and `.en.md`, commit all source changes, ensure the working tree is clean, and create a version tag pointing to the current commit:
 
 ```sh
-git tag -a v0.2.0 -m 'Release v0.2.0'
-go run ./scripts/release --version v0.2.0
+git tag -a v0.2.1 -m 'Release v0.2.1'
+go run ./scripts/release --version v0.2.1
 ```
 
-Output goes to `dist/v0.2.0/`. Packaging fails if the working tree is dirty or the tag does not point to the current commit. Checksums cover both archives and the manifest. Verify them on Linux:
+Output goes to `dist/v0.2.1/`. Packaging fails if the working tree is dirty or the tag does not point to the current commit. Checksums cover both archives and the manifest. Verify them on Linux:
 
 ```sh
-cd dist/v0.2.0
+cd dist/v0.2.1
 sha256sum -c SHA256SUMS
 ```
 
@@ -103,7 +105,7 @@ Push a version tag to trigger publication:
 
 ```sh
 git push origin main
-git push origin refs/tags/v0.2.0
+git push origin refs/tags/v0.2.1
 ```
 
 The Release workflow first runs both platform checks on the tagged source, then builds and verifies the archives. It uploads all assets to a draft before publishing it. Versions with prerelease suffixes such as `-beta` are marked as pre-releases. The four assets are the Windows ZIP, Linux tar.gz, `release.json`, and `SHA256SUMS`.

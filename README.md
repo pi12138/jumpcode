@@ -22,17 +22,17 @@ Linux 通过 HTTPS 向 Windows 发送目录和配对凭据；Windows 上的 VS C
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/pi12138/jumpcode/releases/tag/v0.2.0) 下载 `v0.2.0`。提供 **Windows amd64** 和 **Linux amd64**（Intel/AMD 64 位）二进制，无需安装 Go。已知限制见[发布说明](docs/releases/v0.2.0.md)。
+从 [GitHub Releases](https://github.com/pi12138/jumpcode/releases/tag/v0.2.1) 下载 `v0.2.1`。提供 **Windows amd64** 和 **Linux amd64**（Intel/AMD 64 位）二进制，无需安装 Go。已知限制见[发布说明](docs/releases/v0.2.1.md)。
 
 ### Windows
 
-下载 [Windows ZIP](https://github.com/pi12138/jumpcode/releases/download/v0.2.0/jumpcode_v0.2.0_windows_amd64.zip) 和 [SHA256SUMS](https://github.com/pi12138/jumpcode/releases/download/v0.2.0/SHA256SUMS) 到“下载”目录。可用 `Get-FileHash -Algorithm SHA256` 计算 ZIP 的哈希，与校验文件中的对应项核对。
+下载 [Windows ZIP](https://github.com/pi12138/jumpcode/releases/download/v0.2.1/jumpcode_v0.2.1_windows_amd64.zip) 和 [SHA256SUMS](https://github.com/pi12138/jumpcode/releases/download/v0.2.1/SHA256SUMS) 到“下载”目录。可用 `Get-FileHash -Algorithm SHA256` 计算 ZIP 的哈希，与校验文件中的对应项核对。
 
 在 PowerShell 中将完整发布包解压到固定目录，并将该目录加入当前用户的 `PATH`：
 
 ```powershell
 $jcDir = Join-Path $env:LOCALAPPDATA 'Programs\Jumpcode'
-Expand-Archive -Path "$HOME\Downloads\jumpcode_v0.2.0_windows_amd64.zip" -DestinationPath $jcDir
+Expand-Archive -Path "$HOME\Downloads\jumpcode_v0.2.1_windows_amd64.zip" -DestinationPath $jcDir
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 if (($userPath -split ';') -notcontains $jcDir) {
     [Environment]::SetEnvironmentVariable('Path', "$jcDir;$userPath", 'User')
@@ -48,7 +48,7 @@ jc --version
 以下命令下载、校验并安装到当前用户的 `~/.local/bin`：
 
 ```sh
-jc_version=v0.2.0
+jc_version=v0.2.1
 jc_archive="jumpcode_${jc_version}_linux_amd64.tar.gz"
 jc_download_dir="$(mktemp -d)"
 cd "$jc_download_dir"
@@ -116,4 +116,4 @@ jc task status
 - [使用指南](docs/usage.md)：首次配置、监听地址、凭据管理、后台服务和故障排查。
 - [架构说明](docs/architecture.md)：组件职责、连接方向和配对机制。
 - [开发指南](docs/development.md)：源码布局、构建、交叉编译和验证命令。
-- [v0.2.0 发布说明](docs/releases/v0.2.0.md)：版本功能、发布产物和已知限制。
+- [v0.2.1 发布说明](docs/releases/v0.2.1.md)：版本功能、发布产物和已知限制。

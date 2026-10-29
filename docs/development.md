@@ -62,6 +62,8 @@ go vet -buildvcs=false ./...
 
 `internal/server/task*.go` 实现任务生命周期、XML 定义、Windows COM 调用及任务进程脱离控制台，复用现有 `golang.org/x/sys/windows`，没有新增依赖。Linux 测试使用模拟调度器验证就绪等待、正常停止、错误传播和状态隔离；Windows 测试额外调用原生调度器验证 Unicode XML（仅验证，不注册任务）。控制台测试在隔离子进程中创建真实控制台，验证任务模式脱离后 PID 不变、服务仍然可用、标准输出和 panic 写入日志，避免修改测试主进程的控制台和标准流。跨平台编译不能验证 Windows 桌面的窗口表现，需使用实际产物测试 `jc task` 的安装、启动、停止、登录触发及瞬间闪窗情况。
 
+句柄生命周期回归测试在同样的隔离子进程中模拟旧标准流句柄释放，并让事件对象复用这些编号。强制 GC 后，复用句柄及服务响应必须仍有效。任务进程会保留脱离控制台前的标准流对象，避免其 finalizer 误关被 Windows 复用的句柄。
+
 `network_windows.go` 复用现有依赖中的 `NotifyUnicastIpAddressChange`、`NotifyIpInterfaceChange` 和 `CancelMibChangeNotify2`。`listen_dynamic.go` 串行处理通知、监听增删和失败重试。测试使用可控地址快照、事件通道和真实回环 HTTPS 验证网络切换、连接保留、断网恢复、绑定重试、空监听状态及停止行为；不会修改测试机器的网卡或 VPN 配置。实际 Windows 通知仍需在桌面环境切换 Wi-Fi、启停 VPN 验证，观察 PID、`jc task status` / `jc s status` 和 `server.log` 的监听变化。
 
 ## 版本与发布打包
@@ -73,22 +75,22 @@ go vet -buildvcs=false ./...
 开发过程中可生成测试快照：
 
 ```sh
-go run ./scripts/release --version v0.2.0 --snapshot
+go run ./scripts/release --version v0.2.1 --snapshot
 ```
 
-输出目录为 `dist/v0.2.0-snapshot/`。正式版本号追加 `-snapshot`，已有预发布后缀的版本号追加 `.snapshot`；存在未提交修改时提交号带 `-dirty`，清单记录 `snapshot` 和 `dirty` 状态。工具拒绝覆盖已有输出目录，构建失败时不会留下完整发布目录。
+输出目录为 `dist/v0.2.1-snapshot/`。正式版本号追加 `-snapshot`，已有预发布后缀的版本号追加 `.snapshot`；存在未提交修改时提交号带 `-dirty`，清单记录 `snapshot` 和 `dirty` 状态。工具拒绝覆盖已有输出目录，构建失败时不会留下完整发布目录。
 
 正式打包前，先完成对应版本的 `docs/releases/<版本>.md` 和 `.en.md`，提交所有源码修改，确保工作区干净，再创建指向当前提交的版本标签：
 
 ```sh
-git tag -a v0.2.0 -m '发布 v0.2.0'
-go run ./scripts/release --version v0.2.0
+git tag -a v0.2.1 -m '发布 v0.2.1'
+go run ./scripts/release --version v0.2.1
 ```
 
-正式产物位于 `dist/v0.2.0/`；标签与当前提交不一致或工作区有改动时会拒绝打包。校验文件覆盖两个压缩包和版本清单。在 Linux 中验证：
+正式产物位于 `dist/v0.2.1/`；标签与当前提交不一致或工作区有改动时会拒绝打包。校验文件覆盖两个压缩包和版本清单。在 Linux 中验证：
 
 ```sh
-cd dist/v0.2.0
+cd dist/v0.2.1
 sha256sum -c SHA256SUMS
 ```
 
@@ -104,7 +106,7 @@ sha256sum -c SHA256SUMS
 
 ```sh
 git push origin main
-git push origin refs/tags/v0.2.0
+git push origin refs/tags/v0.2.1
 ```
 
 Release 工作流先对标签对应的源码执行两平台 CI，再生成并校验发布包。上传全部附件后才公开草稿；带 `-beta` 等预发布后缀的版本会标记为 Pre-release。四个附件为 Windows ZIP、Linux tar.gz、`release.json` 和 `SHA256SUMS`。

@@ -106,7 +106,13 @@ func localVSCodeURL(folder string) string {
 
 func remoteVSCodeURL(host, folder string) string {
 	// vscode://vscode-remote/ssh-remote+<host>/<path> 由 VS Code Remote Core 解析。
-	return (&url.URL{Scheme: "vscode", Host: "vscode-remote", Path: trailingSlash("/ssh-remote+" + host + path.Clean(folder))}).String()
+	// windowId=_blank 请求新窗口；已打开的同一远程目录仍由 VS Code 识别并激活。
+	return (&url.URL{
+		Scheme:   "vscode",
+		Host:     "vscode-remote",
+		Path:     trailingSlash("/ssh-remote+" + host + path.Clean(folder)),
+		RawQuery: "windowId=_blank",
+	}).String()
 }
 
 func trailingSlash(value string) string {

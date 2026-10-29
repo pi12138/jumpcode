@@ -90,7 +90,7 @@ cd /home/me/project
 jc client .
 ```
 
-VS Code on Windows should attempt to open the folder through Remote-SSH. Check its window for the final connection result.
+VS Code on Windows should attempt to open the folder through Remote-SSH in a new window. If the same folder on the same SSH host is already open, VS Code activates its existing window. Check its window for the final connection result.
 
 Start the background server manually with `jc s -d`, check it with `jc s status`, and stop it with `jc s stop`. See [Server operation and management](docs/usage.en.md#server-operation-and-management) for details.
 
@@ -112,6 +112,7 @@ Task Scheduler directly runs the same `jc.exe server`, which detaches from the c
 
 ## Documentation
 
+- [Find your scenario](docs/usage.en.md#find-your-scenario): LAN development hosts, SSH callbacks from cloud servers, Tailscale, multiple hosts, and network recovery.
 - [Usage guide](docs/usage.en.md): initial setup, listen addresses, credentials, background operation, and troubleshooting.
 - [Architecture](docs/architecture.en.md): component responsibilities, connection directions, and pairing.
 - [Development guide](docs/development.en.md): source layout, builds, cross-compilation, and verification commands.

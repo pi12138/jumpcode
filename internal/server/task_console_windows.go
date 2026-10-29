@@ -14,6 +14,11 @@ import (
 
 var taskFreeConsole = windows.NewLazySystemDLL("kernel32.dll").NewProc("FreeConsole")
 
+// FreeConsole 可能直接关闭控制台句柄，但旧 os.File 的 finalizer 仍会再次关闭
+// 同一编号。Windows 复用该编号后，GC 就可能误关日志、socket 或 runtime IOCP。
+// 必须保留这些 Go 对象直到进程退出，不能在脱离后对它们调用 Close。
+var taskDetachedStandardFiles []*os.File
+
 // detachTaskConsole 只用于计划任务进程。FreeConsole 不改变 PID；脱离后关闭
 // 原控制台不会终止服务。普通命令与前台 server 不调用此函数。
 func detachTaskConsole(logFile *os.File) error {
@@ -37,6 +42,7 @@ func detachTaskConsole(logFile *os.File) error {
 
 	// 不通过隐藏窗口来模拟后台运行；同时兼容经典控制台与 Windows Terminal。
 	// FreeConsole 在没有关联控制台时也成功，启动瞬间的闪窗仍取决于 Windows。
+	taskDetachedStandardFiles = append(taskDetachedStandardFiles, os.Stdin, os.Stdout, os.Stderr)
 	result, _, callErr := taskFreeConsole.Call()
 	if result == 0 {
 		if callErr == syscall.Errno(0) {

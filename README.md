@@ -90,7 +90,7 @@ cd /home/me/project
 jc client .
 ```
 
-Windows 上的 VS Code 会尝试通过 Remote-SSH 打开该目录，最终连接结果以 VS Code 窗口为准。
+Windows 上的 VS Code 会尝试通过 Remote-SSH 在新窗口打开该目录；如果同一 SSH 主机的同一目录已经打开，则激活已有窗口。最终连接结果以 VS Code 窗口为准。
 
 使用 `jc s -d` 手动启动后台服务，`jc s status` 查看状态，`jc s stop` 停止服务。完整操作见[服务端运行与管理](docs/usage.md#服务端运行与管理)。
 
@@ -112,6 +112,7 @@ jc task status
 
 ## 文档
 
+- [常用场景导航](docs/usage.md#按使用场景查找)：局域网开发机、SSH 公网回调、Tailscale、多主机配对与网络切换恢复。
 - [使用指南](docs/usage.md)：首次配置、监听地址、凭据管理、后台服务和故障排查。
 - [架构说明](docs/architecture.md)：组件职责、连接方向和配对机制。
 - [开发指南](docs/development.md)：源码布局、构建、交叉编译和验证命令。

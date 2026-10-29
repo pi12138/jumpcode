@@ -7,8 +7,23 @@ Install the executable for each platform using the [project home](../README.en.m
 ## Requirements
 
 - Windows: VS Code desktop, Remote-SSH extension, an OpenSSH client available as `ssh`, and the registered `vscode://` protocol handler.
-- To open a remote Linux project, Windows can SSH into the VM. Test with `ssh me@192.168.56.10`; an SSH config alias such as `devvm` is optional shorthand.
-- For Linux-initiated opens, the VM can reach the chosen Windows listen address and port. With a local VMware VM, a host-only network address can work.
+- To open a remote Linux project, Windows can SSH into that host. Test with `ssh me@192.168.56.10`; an SSH config alias such as `devvm` is optional shorthand.
+- For Linux-initiated opens, Linux can reach the Windows listen address and port directly or through a tunnel. Local VMs can use a host-only network; public cloud servers can use SSH reverse forwarding as described below.
+
+## Find your scenario
+
+These scenarios use existing commands. First [install](../README.en.md#installation) the executable on both platforms. Examples below assume `jc` is on `PATH`; replace addresses, usernames, and folders with your own.
+
+| Scenario | Guide |
+| --- | --- |
+| Work in a local Linux VM terminal and open folders in Windows VS Code | [First use: open a Linux VM project](#first-use-open-a-linux-vm-project) |
+| Open a local folder or remote project directly from Windows | [Open from Windows](#open-from-windows); no pairing or server required |
+| Work on a separate Linux host on the LAN | [A separate Linux host on the LAN](#a-separate-linux-host-on-the-lan) |
+| SSH into a cloud server and open the current folder from its terminal | [Cloud servers through SSH reverse forwarding](#cloud-servers-through-ssh-reverse-forwarding) |
+| Windows and Linux are on different networks and already use Tailscale | [Connect devices through Tailscale](#connect-devices-through-tailscale) |
+| Several Linux hosts send requests to one Windows desktop | [Pair multiple Linux hosts](#pair-multiple-linux-hosts) |
+| Opens fail after Wi-Fi or VPN changes | [Recover after network changes](#recover-after-network-changes) |
+| Start at sign-in, manage daily operation, or upgrade | [Task management](#task-management), [Daily operation and logs](#daily-operation-and-logs), and [Upgrades and task configuration](#upgrades-and-task-configuration) |
 
 ## First use: open a Linux VM project
 
@@ -66,6 +81,8 @@ These examples use `192.168.56.1` for a Windows address reachable from the VM an
 
    VS Code on Windows should attempt to connect to `devvm`; check the VS Code window for the final connection result. Use the same command later under the same Linux user. If `$HOME/.local/bin` is on `PATH`, use `jc c .`. The client remembers one Windows server address. Running `jc .` directly on Linux does not request a Windows launch.
 
+When opening a remote project with `jc c .` or `jc host:folder` on Windows, Jumpcode explicitly requests a new window so it does not replace a different project in the current window. If the same folder on the same SSH host is already open, VS Code activates its existing window. VS Code identifies existing windows; Jumpcode does not track them, and no global VS Code window setting needs to change.
+
 ## Open from Windows
 
 ```powershell
@@ -78,7 +95,7 @@ jc me@192.168.56.10:~/project
 
 Arguments without a host prefix are local folders. Remote paths must start with `/` or `~/`; the latter is resolved through SSH. Hosts can be Windows SSH config aliases or `user@host`. On Linux, use `jc client .` or `jc c .` instead of `jc .`.
 
-Jumpcode opens VS Code through its registered `vscode://` protocol handler. It uses `vscode://file/...` for local folders and `vscode://vscode-remote/ssh-remote+<host>/<folder>` for remote folders. It does not invoke `code.cmd`. VS Code may ask for confirmation when it receives an external URI. Jumpcode can confirm only that Windows accepted the launch request; check the VS Code window for the remote connection result.
+Jumpcode opens VS Code through its registered `vscode://` protocol handler. It uses `vscode://file/...` for local folders and `vscode://vscode-remote/ssh-remote+<host>/<folder>/?windowId=_blank` for remote folders. It does not invoke `code.cmd`. VS Code may ask for confirmation when it receives an external URI. Jumpcode can confirm only that Windows accepted the launch request; check the VS Code window for the remote connection result.
 
 Jumpcode uses a short-lived process without a console to open VS Code, so a newly launched VS Code process does not write its logs to the `jc server` terminal. VS Code may still record its own warnings. This does not change where an already running VS Code process writes its output.
 
@@ -234,6 +251,175 @@ jc pair revoke --name devvm
 ```
 
 Revocation takes effect immediately because the server reads current pairing settings for each request. Windows pairings are stored in `jumpcode/server.json` under the user's config folder and contain only token hashes. The Linux pairing is stored in `jumpcode/client.json`, contains the token, and is readable and writable only by the current user. `jc pair revoke` does not delete the saved Linux record, but its token can no longer access the Windows server. Do not share pairing tokens or the server private key. If the VM cannot connect, check the Windows firewall and listen address; Jumpcode does not change firewall settings.
+
+## Common scenarios
+
+### A separate Linux host on the LAN
+
+Linux can be a separate development machine or server on the same network. This example uses `192.168.1.20` for Windows and `me@192.168.1.30` as the Linux SSH destination:
+
+1. On Windows, verify SSH with `ssh me@192.168.1.30`, exit SSH, and start the jc server. Stop any existing server using the command for its mode first. This example uses manual background mode:
+
+   ```powershell
+   jc server --listen 192.168.1.20:59684 --daemon
+   jc server status
+   jc pair create --name lan-dev --ssh-host me@192.168.1.30
+   ```
+
+2. On Linux, use the printed fingerprint and pairing token:
+
+   ```sh
+   jc pair join --server 192.168.1.20:59684 --fingerprint 'paste the certificate fingerprint printed on Windows'
+   cd /home/me/project
+   jc client .
+   ```
+
+Windows must reach the Linux SSH port, and Linux must reach Windows on `59684/TCP`. Sharing Wi-Fi does not guarantee connectivity: guest networks or client isolation may block traffic. Configure inbound firewall rules for your network as needed; jc does not change them. If the Windows address changes frequently, use `--listen auto` and follow [Recover after network changes](#recover-after-network-changes) to update the client address.
+
+### Cloud servers through SSH reverse forwarding
+
+Use this when you connect to a cloud server with OpenSSH on Windows and want to run `jc client .` in the remote terminal. The cloud server needs no direct connection to a Windows public address: SSH carries the callback to the Windows machine that initiated the connection. This forwards jc's HTTPS requests; VS Code uses its own Remote-SSH connection for project files.
+
+#### 1. Configure a Windows loopback listener
+
+`auto` excludes `127.0.0.1`, so add it explicitly. Choose the configuration matching your server mode:
+
+- Manual background: stop an existing manual background server with `jc server stop`, a foreground server with `Ctrl+C`, or an existing scheduled server with the task stop command. Then run:
+
+  ```powershell
+  jc server --listen 127.0.0.1:59684 --daemon
+  jc server status
+  ```
+
+- Scheduled task: if already installed, run `jc task uninstall` and confirm success before reinstalling; skip removal on first installation. Stop any manual server first. Then run:
+
+  ```powershell
+  jc task install --listen 127.0.0.1:59684
+  jc task start
+  jc task status
+  ```
+
+Status should include `127.0.0.1:59684`. To also serve LAN clients, add `--listen auto` to the start or install command above. Task removal preserves pairings, certificates, and logs. Later `jc task start` commands do not accept listen options.
+
+#### 2. Set up the SSH destination and issue credentials
+
+You can use `user@host` directly. To save forwarding options, use two aliases in `%USERPROFILE%\.ssh\config` on Windows. `203.0.113.10` below is a documentation address; replace it with the real cloud address, and adjust the user and SSH port:
+
+```sshconfig
+Host cloud cloud-jc
+    HostName 203.0.113.10
+    User me
+    Port 22
+
+Host cloud-jc
+    RemoteForward 127.0.0.1:59684 127.0.0.1:59684
+    ExitOnForwardFailure yes
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+```
+
+VS Code uses `cloud`, without reverse forwarding. Your login terminal uses `cloud-jc` to establish the callback channel. Do not put `RemoteForward` in `Host *` or the alias used by VS Code: additional VS Code SSH connections could try to bind the same cloud port. Keepalive options detect failed connections but do not reconnect them.
+
+On Windows, verify login with `ssh cloud` and accept the correct SSH host fingerprint. Exit SSH, then create the pairing:
+
+```powershell
+jc pair create --name cloud --ssh-host cloud
+```
+
+Keep the jc certificate fingerprint and pairing token. `--ssh-host` refers to the ordinary `cloud` alias. If the name already exists, reuse credentials you still hold, or revoke and recreate them as described in [Pairing and credentials](#pairing-and-credentials).
+
+#### 3. Establish the tunnel, pair on Linux, and open a project
+
+Connect from Windows and keep this session online:
+
+```powershell
+ssh cloud-jc
+```
+
+Without SSH config, establish the same forwarding with the following command, and use `--ssh-host me@203.0.113.10` when creating the pairing:
+
+```powershell
+ssh -o ExitOnForwardFailure=yes -R 127.0.0.1:59684:127.0.0.1:59684 me@203.0.113.10
+```
+
+Inside the cloud server, run these commands as the intended Linux user:
+
+```sh
+jc pair join --server 127.0.0.1:59684 --fingerprint 'paste the jc certificate fingerprint printed on Windows'
+cd /home/me/project
+jc client .
+```
+
+Enter the pairing token when prompted. Here, `127.0.0.1` means **the cloud server itself**: SSH accepts connections on the cloud loopback interface and forwards HTTPS unchanged to the Windows loopback listener. The pinned certificate fingerprint still belongs to Windows, and pairing authentication remains in effect. On later sessions, keep the tunnel available and run `jc client .`; pairing is not needed each time.
+
+#### 4. Daily use and troubleshooting
+
+- The cloud `sshd` must allow remote TCP forwarding, with no other policy prohibiting the listener. Cloud port `59684` must be free. No public inbound security group rule for the callback port or `GatewayPorts` change is required.
+- Keep one `cloud-jc` tunnel using this port per cloud server. Use `ssh cloud` for additional terminals; `jc client .` in those sessions can use the established loopback endpoint too.
+- Disconnecting SSH removes the forwarding. Run `ssh cloud-jc` again to restore it. The Windows sign-in task starts only jc; it does not establish SSH tunnels. Logging into the cloud server from another device does not automatically create a channel back to Windows either.
+- On the cloud server, `ss -ltn 'sport = :59684'` checks whether the loopback listener exists. It only verifies the entry point. `ExitOnForwardFailure` also checks forwarding setup, not whether the Windows jc server is running. If requests fail, check the Windows server status for `127.0.0.1:59684` and inspect its log.
+- If pairing succeeds but VS Code cannot connect, check `ssh cloud` and Remote-SSH separately on Windows. The callback endpoint `127.0.0.1:59684` and the pairing's SSH target `cloud` serve different purposes and cannot be swapped.
+
+See [OpenSSH `ssh -R`](https://man.openbsd.org/ssh#R), [`sshd` forwarding settings](https://man.openbsd.org/sshd_config#AllowTcpForwarding), and [`ExitOnForwardFailure`](https://man.openbsd.org/ssh_config#ExitOnForwardFailure). This guide is based on the current implementation and OpenSSH behavior; a complete Windows-to-cloud end-to-end test has not yet been performed.
+
+### Connect devices through Tailscale
+
+Use this when both devices already have Tailscale and are on different networks. First confirm that they can communicate within the network, with access policies and host firewalls permitting Linux to reach the Windows jc port and Windows to reach the Linux SSH port. The overlay provides connectivity; SSH and jc must run separately.
+
+This example uses `100.101.102.103` as the Windows Tailscale IPv4 address and `100.104.105.106` for Linux. Replace them with the actual addresses and first verify `ssh me@100.104.105.106` from Windows. Stop any existing jc server, then use manual background mode:
+
+```powershell
+jc server --listen 100.101.102.103:59684 --daemon
+jc server status
+jc pair create --name tailscale-dev --ssh-host me@100.104.105.106
+```
+
+On Linux:
+
+```sh
+jc pair join --server 100.101.102.103:59684 --fingerprint 'paste the certificate fingerprint printed on Windows'
+jc client /home/me/project
+```
+
+Tailscale's default addresses come from `100.64.0.0/10`. Current jc `auto` selection includes only private IPv4 addresses and excludes that range, so configure the address explicitly. Add `--listen auto` to continue serving other interfaces if needed, but every explicit address must exist and be bindable at startup. For task mode, pass the same listen options to `jc task install`. The Tailscale interface must also be ready at sign-in startup; `auto` will not discover it.
+
+Current jc `--listen` and pairing `--server` options accept explicit IPv4 addresses only, not IPv6 or hostnames; use Tailscale IPv4 addresses in these examples. If access policies or the interface are not ready, restore connectivity and restart jc. See [Tailscale addresses](https://tailscale.com/docs/concepts/tailscale-ip-addresses) and [Connect to devices](https://tailscale.com/docs/how-to/connect-to-devices). This guide has not yet been tested in a two-device Tailscale environment.
+
+### Pair multiple Linux hosts
+
+Windows can issue separate credentials for different Linux hosts. Run these commands sequentially on Windows and retain each token separately:
+
+```powershell
+jc pair create --name devvm --ssh-host me@192.168.56.10
+jc pair create --name lan-dev --ssh-host me@192.168.1.30
+jc pair list
+```
+
+Run `jc pair join` on each Linux host using **that host's token** and a Windows listener it can reach. Pairings under the same Windows user config share a certificate fingerprint but have separate tokens. The token selects the bound SSH host. Do not copy one `client.json` to different hosts: they would use the same pairing and open the same SSH target.
+
+To retire a host, run `jc pair revoke --name lan-dev` on Windows. Other pairings continue working. Create and revoke credentials sequentially; there is no cross-process write lock yet.
+
+Linux client settings belong to the current user, with one pairing saved per user. Another successful `pair join` replaces that user's previous client settings without revoking the old Windows credentials. Run `jc client` as the Linux user who paired; using `sudo` selects another user's settings.
+
+### Recover after network changes
+
+After Wi-Fi or VPN changes, continue using `jc client .` if the saved Windows address is still reachable. A server using `auto` adjusts listeners. A server using only fixed IPs needs an updated listen configuration and restart.
+
+If connections fail, check in this order:
+
+1. On Windows, inspect actual listeners with `jc task status` for tasks, `jc server status` for manual background mode, or the terminal for foreground mode. See [Daily operation and logs](#daily-operation-and-logs) for log commands.
+2. On Linux, use `jc pair status` to inspect the saved address. It reads local settings only and does not verify availability or credentials.
+3. For SSH tunnels, restore the tunnel first. If the endpoint remains `127.0.0.1:59684`, changes to the physical Windows IP do not require pairing again.
+4. For direct connections, if the old address is unreachable, choose a new reachable listener. If you still hold the original token, run:
+
+   ```sh
+   jc pair join --server 192.168.1.21:59684 --fingerprint 'original Windows certificate fingerprint'
+   jc client .
+   ```
+
+   `192.168.1.21` is an example new address. Enter the original token when prompted. Changing only the address, while retaining the Windows certificate, preserves the fingerprint.
+
+If you did not retain the original token separately, `pair list/status` cannot display it; Windows stores only its hash. On Windows, revoke the original pairing name, recreate it with the same SSH target, then pair on Linux using the new token. There is no need to delete the config folder or regenerate certificates because an address changed. Automatic listeners do not push new addresses to clients.
 
 ## Troubleshooting
 

@@ -22,12 +22,15 @@ func TestRemoteTargetParsing(t *testing.T) {
 }
 
 func TestVSCodeURLs(t *testing.T) {
-	remote, err := url.Parse(remoteVSCodeURL("devvm", "/home/me/项目 #1"))
+	remote, err := url.Parse(remoteVSCodeURL("devvm", "/home/me/项目 #1?windowId=42&x=y"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if remote.Scheme != "vscode" || remote.Host != "vscode-remote" || remote.Path != "/ssh-remote+devvm/home/me/项目 #1/" {
+	if remote.Scheme != "vscode" || remote.Host != "vscode-remote" || remote.Path != "/ssh-remote+devvm/home/me/项目 #1?windowId=42&x=y/" {
 		t.Fatalf("远程 URI 错误: %s", remote)
+	}
+	if query := remote.Query(); len(query) != 1 || query.Get("windowId") != "_blank" || remote.Fragment != "" {
+		t.Fatalf("应请求新窗口，目录中的特殊字符不能改变窗口参数: %s", remote)
 	}
 	if !strings.Contains(remote.String(), "%23") {
 		t.Fatalf("特殊字符应编码: %s", remote)
